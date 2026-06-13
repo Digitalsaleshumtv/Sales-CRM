@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/dist-ssr/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+backend/.env
+backend/.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Claude Code preview harness (temp files)
+frontend/preview.html
+frontend/src/preview-main.jsx
+
+# One-off local utility scripts (contain hardcoded local paths / secrets)
+fix_schema.mjs
+import_agencies.mjs
+read_agencies.mjs
+upload_presentations.mjs
