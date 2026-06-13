@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { downloadExcel } from '../../lib/exportExcel'
 
 const INDUSTRIES = ['FMCG','Telecom','Banking & Finance','Automotive','Real Estate','Retail','Food & Beverage','Health & Pharma','Fashion & Apparel','Technology','Media & Entertainment','Education','Travel & Tourism','Energy','Government','NGO / Non-Profit','Agriculture','E-commerce','Other']
 
@@ -65,9 +66,28 @@ export default function Clients() {
           <h1 className="text-2xl font-bold text-gray-900">Clients & Agencies</h1>
           <p className="text-sm text-gray-500 mt-0.5">{clients.length} total · {filtered.length} shown</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors">
-          <Plus size={16} /> Add Client
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => downloadExcel(
+            filtered.map(c => ({
+              Name: c.name,
+              Type: c.type,
+              Industry: Array.isArray(c.industry) ? c.industry.join(', ') : (c.industry || ''),
+              Region: c.region || '',
+              Status: c.status,
+              'Contact Name': c.contact_name || '',
+              'Contact Email': c.contact_email || '',
+              'Contact Phone': c.contact_phone || '',
+              'Entertainment Budget (PKR)': c.entertainment_budget || '',
+              Notes: c.notes || '',
+            })),
+            'Clients', 'Clients'
+          )} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            <Download size={15}/> Export Excel
+          </button>
+          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors">
+            <Plus size={16} /> Add Client
+          </button>
+        </div>
       </div>
 
       {/* City Tabs */}

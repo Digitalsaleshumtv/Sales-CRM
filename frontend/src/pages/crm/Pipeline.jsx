@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react'
-import { Plus, X, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { Plus, X, CheckCircle, Clock, AlertCircle, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { notifyAdmin } from '../../lib/notify'
+import { downloadExcel } from '../../lib/exportExcel'
 
 const TABS = ['Follow-ups', 'RO Tracker', 'Meeting Log']
 const FOLLOW_UP_TYPES = ['Call', 'Email', 'In-Person Meeting', 'WhatsApp', 'Presentation', 'Other']
@@ -100,6 +101,33 @@ export default function Pipeline() {
           </div>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => {
+            if (activeTab === 'Follow-ups') {
+              downloadExcel(followUps.map(f => ({
+                Client: f.clients?.name || '',
+                Deal: f.deals?.name || '',
+                Date: f.follow_up_date,
+                Type: f.type,
+                Status: f.status,
+                Notes: f.notes || '',
+                'Next Action': f.next_action || '',
+                'Next Follow-up Date': f.next_follow_up_date || '',
+              })), 'Follow-ups', 'Follow-ups')
+            } else if (activeTab === 'Meeting Log') {
+              downloadExcel(meetings.map(m => ({
+                Client: m.clients?.name || '',
+                Deal: m.deals?.name || '',
+                Date: m.meeting_date,
+                Type: m.type,
+                Outcome: m.outcome || '',
+                'Deal Status After': m.deal_status_after || '',
+                Notes: m.notes || '',
+                'Next Steps': m.next_steps || '',
+              })), 'Meetings', 'Meetings')
+            }
+          }} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            <Download size={15}/> Export Excel
+          </button>
           <button onClick={() => setShowFUModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600">
             <Plus size={16} /> Follow-up
           </button>

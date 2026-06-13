@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { notifyAdmin } from '../../lib/notify'
+import { downloadExcel } from '../../lib/exportExcel'
 
 const DEAL_TYPES = ['Drama Sponsorship','Social Media Posts','Website Banners','Exclusive Content','Product Integration','Drama Integration','Podcast','Webseries','Event Sponsorship','Branded Content Package']
 const CHANNELS = ['HUM TV','Masala TV','HUM News','HUM Network']
@@ -81,9 +82,29 @@ export default function Deals() {
           <h1 className="text-2xl font-bold text-gray-900">Deals</h1>
           <p className="text-sm text-gray-500 mt-0.5">{deals.length} total deals</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors">
-          <Plus size={16} /> New Deal
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => downloadExcel(
+            filtered.map(d => ({
+              'Deal Name': d.name,
+              Client: d.clients?.name || '',
+              Type: d.type,
+              Channel: (d.channel || []).join(', '),
+              Tier: d.tier || '',
+              Status: d.status,
+              'Value Net (PKR)': d.value_net || 0,
+              'Value Gross (PKR)': d.value_gross || 0,
+              'Start Date': d.start_date || '',
+              'End Date': d.end_date || '',
+              Notes: d.notes || '',
+            })),
+            'Deals', 'Deals'
+          )} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            <Download size={15}/> Export Excel
+          </button>
+          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors">
+            <Plus size={16} /> New Deal
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

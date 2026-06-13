@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Plus, X, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { downloadExcel } from '../../lib/exportExcel'
 
 function fmt(n) {
   if (!n && n !== 0) return '—'
@@ -72,16 +73,25 @@ export default function Billing() {
     setSaving(false)
   }
 
-  function exportCSV() {
-    const rows = [['Invoice #','Client','Deal','Date','Net','GST','Gross','Due Date','Received','Outstanding','Status','Aging']]
-    filtered.forEach(i => {
-      const outstanding = (i.amount_gross || 0) - (i.amount_received || 0)
-      rows.push([i.invoice_number, i.clients?.name, i.deals?.name, i.invoice_date, i.amount_net, i.gst, i.amount_gross, i.due_date, i.amount_received, outstanding, i.status, agingBucket(i.due_date)])
-    })
-    const csv = rows.map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = 'invoices.csv'; a.click()
+  function exportExcelFile() {
+    downloadExcel(
+      filtered.map(i => ({
+        'Invoice #': i.invoice_number,
+        Client: i.clients?.name || '',
+        Deal: i.deals?.name || '',
+        'Invoice Date': i.invoice_date,
+        'Due Date': i.due_date,
+        'Net (PKR)': i.amount_net || 0,
+        'GST (PKR)': i.gst || 0,
+        'Gross (PKR)': i.amount_gross || 0,
+        'Received (PKR)': i.amount_received || 0,
+        'Outstanding (PKR)': (i.amount_gross || 0) - (i.amount_received || 0),
+        Status: i.status,
+        Aging: agingBucket(i.due_date) || '',
+        'Payment Date': i.payment_date || '',
+      })),
+      'Invoices', 'Invoices'
+    )
   }
 
   const filtered = invoices.filter(i => filterStatus === 'all' || i.status === filterStatus)
@@ -100,8 +110,8 @@ export default function Billing() {
           <p className="text-sm text-gray-500 mt-0.5">{invoices.length} invoices</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportCSV} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-            <Download size={15} /> Export CSV
+          <button onClick={exportExcelFile} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            <Download size={15} /> Export Excel
           </button>
           <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600">
             <Plus size={16} /> New Invoice
