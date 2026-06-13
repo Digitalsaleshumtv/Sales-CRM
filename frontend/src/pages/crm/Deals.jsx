@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { notifyAdmin } from '../../lib/notify'
 
 const DEAL_TYPES = ['Drama Sponsorship','Social Media Posts','Website Banners','Exclusive Content','Product Integration','Drama Integration','Podcast','Webseries','Event Sponsorship','Branded Content Package']
 const CHANNELS = ['HUM TV','Masala TV','HUM News','HUM Network']
@@ -57,9 +58,13 @@ export default function Deals() {
     e.preventDefault()
     setSaving(true)
     const payload = { ...form, value_net: form.value_net ? Number(form.value_net) : null, agency_commission_pct: Number(form.agency_commission_pct) }
-    const { error } = await supabase.from('deals').insert([payload])
-    if (!error) { setShowModal(false); setForm(defaultForm()); fetchDeals() }
-    else alert('Error: ' + error.message)
+    const { error, data } = await supabase.from('deals').insert([payload]).select('*, clients(name)')
+    if (!error) {
+      const clientName = data?.[0]?.clients?.name || 'a client'
+      const amount = payload.value_net ? ` · PKR ${(payload.value_net / 1000000).toFixed(1)}M` : ''
+      notifyAdmin('new_deal', `New deal: ${form.name}`, `${clientName}${amount} · ${form.status}`)
+      setShowModal(false); setForm(defaultForm()); fetchDeals()
+    } else alert('Error: ' + error.message)
     setSaving(false)
   }
 

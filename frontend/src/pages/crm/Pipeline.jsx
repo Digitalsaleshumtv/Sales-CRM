@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Plus, X, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { notifyAdmin } from '../../lib/notify'
 
 const TABS = ['Follow-ups', 'RO Tracker', 'Meeting Log']
 const FOLLOW_UP_TYPES = ['Call', 'Email', 'In-Person Meeting', 'WhatsApp', 'Presentation', 'Other']
@@ -54,17 +55,27 @@ export default function Pipeline() {
 
   async function saveFU(e) {
     e.preventDefault(); setSaving(true)
-    const { error } = await supabase.from('follow_ups').insert([fuForm])
-    if (!error) { setShowFUModal(false); setFuForm({ client_id: '', deal_id: '', follow_up_date: today, type: 'Call', notes: '', status: 'Pending', next_action: '', next_follow_up_date: '' }); fetchAll() }
-    else alert(error.message)
+    const { error, data } = await supabase.from('follow_ups').insert([fuForm]).select('*, clients(name)')
+    if (!error) {
+      const clientName = data?.[0]?.clients?.name || 'a client'
+      notifyAdmin('new_followup', 'New follow-up added', `${fuForm.type} with ${clientName} on ${fuForm.follow_up_date}`)
+      setShowFUModal(false)
+      setFuForm({ client_id: '', deal_id: '', follow_up_date: today, type: 'Call', notes: '', status: 'Pending', next_action: '', next_follow_up_date: '' })
+      fetchAll()
+    } else alert(error.message)
     setSaving(false)
   }
 
   async function saveMeeting(e) {
     e.preventDefault(); setSaving(true)
-    const { error } = await supabase.from('meeting_logs').insert([meetForm])
-    if (!error) { setShowMeetingModal(false); setMeetForm({ client_id: '', deal_id: '', meeting_date: today, type: 'In-Person', outcome: '', deal_status_after: '', notes: '', next_steps: '' }); fetchAll() }
-    else alert(error.message)
+    const { error, data } = await supabase.from('meeting_logs').insert([meetForm]).select('*, clients(name)')
+    if (!error) {
+      const clientName = data?.[0]?.clients?.name || 'a client'
+      notifyAdmin('new_meeting', 'New meeting logged', `${meetForm.type} with ${clientName} on ${meetForm.meeting_date}`)
+      setShowMeetingModal(false)
+      setMeetForm({ client_id: '', deal_id: '', meeting_date: today, type: 'In-Person', outcome: '', deal_status_after: '', notes: '', next_steps: '' })
+      fetchAll()
+    } else alert(error.message)
     setSaving(false)
   }
 

@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart2, Search, Bell, LogOut, ChevronDown } from 'lucide-react'
+import { BarChart2, Search, LogOut } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 import { supabase } from '../../lib/supabase'
+import NotificationCenter from './NotificationCenter'
 
 const CRM_TABS = [
   { path: '/crm', label: 'Home' },
@@ -34,7 +35,7 @@ const INTEL_TABS = [
 export default function TopNav() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { activeModule, setActiveModule, user, notifications } = useAppStore()
+  const { activeModule, setActiveModule, user } = useAppStore()
 
   const tabs = activeModule === 'crm' ? CRM_TABS : INTEL_TABS
 
@@ -86,12 +87,7 @@ export default function TopNav() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          <button className="relative p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
-            <Bell size={18} />
-            {notifications.length > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-brand-500 rounded-full" />
-            )}
-          </button>
+          <NotificationCenter />
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <div className="w-7 h-7 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-semibold">
               {user?.email?.[0]?.toUpperCase() || 'U'}
