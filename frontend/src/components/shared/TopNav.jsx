@@ -1,5 +1,6 @@
+import { useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart2, Search, LogOut } from 'lucide-react'
+import { BarChart2, Search, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 import { supabase } from '../../lib/supabase'
 import NotificationCenter from './NotificationCenter'
@@ -36,6 +37,8 @@ export default function TopNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { activeModule, setActiveModule, user } = useAppStore()
+  const tabsRef = useRef(null)
+  const scrollTabs = dir => tabsRef.current?.scrollBy({ left: dir * 160, behavior: 'smooth' })
 
   const tabs = activeModule === 'crm' ? CRM_TABS : INTEL_TABS
 
@@ -105,7 +108,11 @@ export default function TopNav() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex items-center gap-0.5 px-4 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center border-t border-gray-100">
+        <button onClick={() => scrollTabs(-1)} className="px-1.5 py-2 text-gray-400 hover:text-gray-600 flex-shrink-0">
+          <ChevronLeft size={16} />
+        </button>
+        <div ref={tabsRef} className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide flex-1">
         {tabs.map((tab) => {
           const isActive =
             tab.path === (activeModule === 'crm' ? '/crm' : '/intel')
@@ -125,6 +132,10 @@ export default function TopNav() {
             </Link>
           )
         })}
+        </div>
+        <button onClick={() => scrollTabs(1)} className="px-1.5 py-2 text-gray-400 hover:text-gray-600 flex-shrink-0">
+          <ChevronRight size={16} />
+        </button>
       </div>
     </nav>
   )

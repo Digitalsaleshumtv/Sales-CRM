@@ -42,22 +42,35 @@ export default function Sites() {
 
   async function scrapeSite(site) {
     setScrapingId(site.id)
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-      const res = await fetch(`${apiUrl}/api/scrape/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: site.url, site_id: site.id }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        alert(`✅ Scrape complete!\nBrands detected: ${data.brands_found?.length > 0 ? data.brands_found.join(', ') : 'None found'}`)
-        fetchSites()
-      } else {
-        alert('Scrape failed: ' + (data.error || 'Unknown error'))
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    // Try up to 2 times — first attempt may wake Render's free-tier server (takes ~30s)
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(`${apiUrl}/api/scrape/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: site.url, site_id: site.id }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          alert(`✅ Scrape complete!\nBrands detected: ${data.brands_found?.length > 0 ? data.brands_found.join(', ') : 'None found'}`)
+          fetchSites()
+          setScrapingId(null)
+          return
+        } else {
+          alert('Scrape failed: ' + (data.error || 'Unknown error'))
+          setScrapingId(null)
+          return
+        }
+      } catch {
+        if (attempt === 1) {
+          // Server likely sleeping — wait 30s and retry automatically
+          alert('⏳ Server is waking up (takes ~30 seconds on first use). Retrying automatically…')
+          await new Promise(r => setTimeout(r, 30000))
+        } else {
+          alert('❌ Could not reach the server. Check your internet connection or try again in a minute.')
+        }
       }
-    } catch {
-      alert('❌ Backend not running. Start the backend server first (START.bat)')
     }
     setScrapingId(null)
   }

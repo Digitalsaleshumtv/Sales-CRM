@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { TrendingUp, Briefcase, Users, Send, Lock, Calendar, AlertCircle, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import useAppStore from '../../store/useAppStore'
 
 function StatCard({ title, value, sub, icon: Icon, color }) {
   return (
@@ -45,6 +46,10 @@ const STATUS_COLORS = {
 }
 
 export default function Dashboard() {
+  const { user } = useAppStore()
+  const firstName = (user?.user_metadata?.full_name?.split(' ')?.[0]
+    || user?.email?.split('@')?.[0]?.split('.')?.[0]
+    || 'there').replace(/^\w/, c => c.toUpperCase())
   const [stats, setStats] = useState({})
   const [recentDeals, setRecentDeals] = useState([])
   const [overdueFollowUps, setOverdueFollowUps] = useState([])
@@ -96,7 +101,7 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Good {greeting()}, Aamish 👋</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Good {greeting()}, {firstName} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">{new Date().toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
 
