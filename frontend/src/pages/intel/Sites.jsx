@@ -1,15 +1,18 @@
 ﻿import { useEffect, useState } from 'react'
 import { Plus, X, Play, Pause, Trash2, ExternalLink, RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 const CATEGORIES = ['News', 'Entertainment', 'E-commerce', 'Lifestyle', 'Other']
 
 export default function Sites() {
+  const navigate = useNavigate()
   const [sites, setSites] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [scrapingId, setScrapingId] = useState(null)
+  const [scrapeAllLoading, setScrapeAllLoading] = useState(false)
   const [form, setForm] = useState({ url: '', nickname: '', category: 'News' })
 
   useEffect(() => { fetchSites() }, [])
@@ -53,9 +56,9 @@ export default function Sites() {
         })
         const data = await res.json()
         if (res.ok) {
-          alert(`✅ Scrape complete!\nBrands detected: ${data.brands_found?.length > 0 ? data.brands_found.join(', ') : 'None found'}`)
           fetchSites()
           setScrapingId(null)
+          navigate('/intel/results')
           return
         } else {
           alert('Scrape failed: ' + (data.error || 'Unknown error'))
@@ -77,16 +80,22 @@ export default function Sites() {
 
   async function scrapeAll() {
     if (!confirm(`Scrape all ${sites.filter(s=>s.is_active).length} active sites now?`)) return
+    setScrapeAllLoading(true)
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
       const res = await fetch(`${apiUrl}/api/scrape/run-all`, { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        alert(`✅ Scraped ${data.scraped} sites.\n${data.results?.map(r => `${r.url}: ${r.brands?.length || 0} brands`).join('\n')}`)
         fetchSites()
-      } else alert('Scrape all failed')
+        setScrapeAllLoading(false)
+        navigate('/intel/results')
+      } else {
+        setScrapeAllLoading(false)
+        alert('Scrape all failed: ' + (data?.error || 'Unknown error'))
+      }
     } catch {
-      alert('❌ Backend not running. Start backend first.')
+      setScrapeAllLoading(false)
+      alert('❌ Could not reach the server. Make sure the backend is running or try again in a minute.')
     }
   }
 
@@ -98,8 +107,8 @@ export default function Sites() {
           <p className="text-sm text-gray-500 mt-0.5">{sites.filter(s=>s.is_active).length} active sites · auto-scraped daily at 8AM PKT</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={scrapeAll} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-            <RefreshCw size={15} /> Scrape All Now
+          <button onClick={scrapeAll} disabled={scrapeAllLoading} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            <RefreshCw size={15} className={scrapeAllLoading ? 'animate-spin' : ''} /> {scrapeAllLoading ? 'Scraping...' : 'Scrape All Now'}
           </button>
           <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-600">
             <Plus size={16} /> Add Site
