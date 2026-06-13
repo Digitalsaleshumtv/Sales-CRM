@@ -1,11 +1,16 @@
 ﻿import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Briefcase, Users, Send, Lock, Calendar, AlertCircle, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import useAppStore from '../../store/useAppStore'
 
-function StatCard({ title, value, sub, icon: Icon, color }) {
+function StatCard({ title, value, sub, icon: Icon, color, href }) {
+  const navigate = useNavigate()
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm">
+    <div
+      onClick={() => href && navigate(href)}
+      className={`bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm transition-all ${href ? 'cursor-pointer hover:shadow-md hover:border-brand-200 hover:-translate-y-0.5' : ''}`}
+    >
       <div className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
         <Icon size={20} className="text-white" />
       </div>
@@ -106,14 +111,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Revenue (MTD)" value={fmt(stats.mtdRevenue)} sub="Net billed this month" icon={TrendingUp} color="bg-green-500" />
-        <StatCard title="Active Deals" value={stats.activeDeals} sub="Excl. completed/cancelled" icon={Briefcase} color="bg-blue-500" />
-        <StatCard title="Active Clients" value={stats.activeClients} sub="In the last 90 days" icon={Users} color="bg-purple-500" />
-        <StatCard title="Proposals Sent" value={stats.proposalsSent} sub="This month" icon={Send} color="bg-orange-500" />
-        <StatCard title="Deals Locked" value={stats.dealsLocked} sub="This month" icon={Lock} color="bg-indigo-500" />
-        <StatCard title="Meetings Held" value={stats.meetingsHeld} sub="This month" icon={Calendar} color="bg-teal-500" />
-        <StatCard title="Overdue Invoices" value={stats.overdueInvoicesCount} sub={stats.overdueInvoicesAmt ? fmt(stats.overdueInvoicesAmt) + ' outstanding' : 'All clear'} icon={AlertCircle} color={stats.overdueInvoicesCount > 0 ? 'bg-red-500' : 'bg-gray-400'} />
-        <StatCard title="Brands Detected" value="—" sub="Set up Ad Intelligence" icon={Eye} color="bg-brand-500" />
+        <StatCard title="Revenue (MTD)" value={fmt(stats.mtdRevenue)} sub="Net billed this month" icon={TrendingUp} color="bg-green-500" href="/crm/revenue" />
+        <StatCard title="Active Deals" value={stats.activeDeals} sub="Excl. completed/cancelled" icon={Briefcase} color="bg-blue-500" href="/crm/deals" />
+        <StatCard title="Active Clients" value={stats.activeClients} sub="In the last 90 days" icon={Users} color="bg-purple-500" href="/crm/clients" />
+        <StatCard title="Proposals Sent" value={stats.proposalsSent} sub="This month" icon={Send} color="bg-orange-500" href="/crm/deals" />
+        <StatCard title="Deals Locked" value={stats.dealsLocked} sub="This month" icon={Lock} color="bg-indigo-500" href="/crm/deals" />
+        <StatCard title="Meetings Held" value={stats.meetingsHeld} sub="This month" icon={Calendar} color="bg-teal-500" href="/crm/pipeline" />
+        <StatCard title="Overdue Invoices" value={stats.overdueInvoicesCount} sub={stats.overdueInvoicesAmt ? fmt(stats.overdueInvoicesAmt) + ' outstanding' : 'All clear'} icon={AlertCircle} color={stats.overdueInvoicesCount > 0 ? 'bg-red-500' : 'bg-gray-400'} href="/crm/billing" />
+        <StatCard title="Brands Detected" value="—" sub="Set up Ad Intelligence" icon={Eye} color="bg-brand-500" href="/intel/brands" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
