@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BarChart2, Search, Bell, LogOut, ChevronDown } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 import { supabase } from '../../lib/supabase'
@@ -33,6 +33,7 @@ const INTEL_TABS = [
 
 export default function TopNav() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { activeModule, setActiveModule, user, notifications } = useAppStore()
 
   const tabs = activeModule === 'crm' ? CRM_TABS : INTEL_TABS
@@ -51,7 +52,7 @@ export default function TopNav() {
             <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
               <span className="text-white text-xs font-bold">H</span>
             </div>
-            <span className="font-semibold text-gray-900 text-sm">HUM TV Sales</span>
+            <span className="font-semibold text-gray-900 text-sm">Hum Network Digital Sales</span>
           </div>
 
           <div className="h-5 w-px bg-gray-300" />
@@ -59,7 +60,7 @@ export default function TopNav() {
           {/* Module Switcher */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setActiveModule('crm')}
+              onClick={() => { setActiveModule('crm'); navigate('/crm') }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 activeModule === 'crm'
                   ? 'bg-white text-brand-600 shadow-sm'
@@ -70,7 +71,7 @@ export default function TopNav() {
               Sales CRM
             </button>
             <button
-              onClick={() => setActiveModule('intel')}
+              onClick={() => { setActiveModule('intel'); navigate('/intel') }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 activeModule === 'intel'
                   ? 'bg-white text-brand-600 shadow-sm'
