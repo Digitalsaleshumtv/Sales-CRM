@@ -396,7 +396,7 @@ async function sendWhatsApp(message) {
     return
   }
   for (const phone of WHATSAPP_RECIPIENTS) {
-    const chatId = `${phone}@c.us`
+    const chatId = `${phone.replace(/^\+/, '')}@c.us`
     const url = `https://api.green-api.com/waInstance${GREENAPI_INSTANCE}/sendMessage/${GREENAPI_TOKEN}`
     const res = await fetch(url, {
       method: 'POST',
