@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Award, TrendingUp, Users, Target } from 'lucide-react'
+import { Award, TrendingUp, Users, Target, X, ChevronRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { supabase } from '../../lib/supabase'
 
@@ -63,9 +63,22 @@ function SparkBar({ data, target }) {
   )
 }
 
+const STATUS_COLORS = {
+  'Locked':          'bg-purple-100 text-purple-700',
+  'RO Received':     'bg-indigo-100 text-indigo-700',
+  'Billed':          'bg-green-100 text-green-700',
+  'Sent to Finance': 'bg-teal-100 text-teal-700',
+  'Completed':       'bg-gray-100 text-gray-600',
+  'Pitch Sent':      'bg-blue-100 text-blue-700',
+  'In Negotiation':  'bg-yellow-100 text-yellow-700',
+  'Under Process':   'bg-orange-100 text-orange-700',
+  'Prospecting':     'bg-slate-100 text-slate-600',
+}
+
 export default function KPIs() {
-  const [allDeals, setAllDeals] = useState([])
-  const [loading, setLoading]   = useState(true)
+  const [allDeals, setAllDeals]       = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [selectedPerson, setSelected] = useState(null)
   const now      = new Date()
   const curMonth = now.getMonth()+1
   const curYear  = now.getFullYear()
@@ -78,7 +91,7 @@ export default function KPIs() {
     setLoading(true)
     const { data } = await supabase
       .from('deals')
-      .select('value_net, status, assigned_to, created_at')
+      .select('id, name, value_net, status, assigned_to, created_at, start_date, end_date, channel, clients(name)')
     setAllDeals(data || [])
     setLoading(false)
   }
@@ -200,7 +213,7 @@ export default function KPIs() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {teamStats.map(m => (
-            <div key={m.name} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div key={m.name} onClick={() => setSelected(m.name)} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
@@ -211,7 +224,10 @@ export default function KPIs() {
                     <p className="text-xs text-gray-400 leading-tight mt-0.5">{m.title}</p>
                   </div>
                 </div>
-                {m.ytdPct >= 100 && <Award size={18} className="text-yellow-500 flex-shrink-0" />}
+                <div className="flex items-center gap-1">
+                  {m.ytdPct >= 100 && <Award size={18} className="text-yellow-500" />}
+                  <ChevronRight size={14} className="text-gray-300 group-hover:text-brand-400 transition-colors" />
+                </div>
               </div>
 
               {/* This month */}
@@ -337,6 +353,120 @@ export default function KPIs() {
           </div>
         </div>
       )}
+
+      {/* Deal breakdown drawer */}
+      {selectedPerson && (() => {
+        const personDeals    = allDeals.filter(d => d.assigned_to === selectedPerson)
+        const committed      = personDeals.filter(d => COMMITTED_STATUSES.includes(d.status))
+        const pipeline       = personDeals.filter(d => PIPELINE_STATUSES.includes(d.status))
+        const committedTotal = committed.reduce((s, d) => s + (d.value_net || 0), 0)
+        const pipelineTotal  = pipeline.reduce((s, d) => s + (d.value_net || 0), 0)
+        const person         = TEAM.find(t => t.name === selectedPerson)
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSelected(null)} />
+            <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white z-50 shadow-2xl flex flex-col">
+              {/* Drawer header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-brand-500 to-brand-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-sm">
+                    {selectedPerson[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg leading-tight">{selectedPerson}</p>
+                    <p className="text-xs text-white/70">{person?.title}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelected(null)} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Summary strip */}
+              <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50 border-b border-gray-100">
+                {[
+                  { label: 'Committed', value: fmt(committedTotal), color: 'text-green-600' },
+                  { label: 'Pipeline',  value: fmt(pipelineTotal),  color: 'text-blue-600'  },
+                  { label: 'Total Deals', value: personDeals.length, color: 'text-gray-800' },
+                ].map(s => (
+                  <div key={s.label} className="px-4 py-3 text-center">
+                    <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-gray-400">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+                {/* Committed deals */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                    Committed Deals ({committed.length}) — {fmt(committedTotal)}
+                  </h3>
+                  {committed.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No committed deals yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {[...committed].sort((a, b) => (b.value_net||0) - (a.value_net||0)).map(d => (
+                        <div key={d.id} className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-900 text-sm">{d.name}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{d.clients?.name || '—'}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="font-bold text-green-700 text-sm">{fmt(d.value_net)}</p>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-500'}`}>
+                                {d.status}
+                              </span>
+                            </div>
+                          </div>
+                          {(d.start_date || d.end_date) && (
+                            <p className="text-[11px] text-gray-400 mt-1.5">📅 {d.start_date || '?'} → {d.end_date || '?'}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Pipeline deals */}
+                {pipeline.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                      Pipeline ({pipeline.length}) — {fmt(pipelineTotal)}
+                    </h3>
+                    <div className="space-y-2">
+                      {[...pipeline].sort((a, b) => (b.value_net||0) - (a.value_net||0)).map(d => (
+                        <div key={d.id} className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-900 text-sm">{d.name}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{d.clients?.name || '—'}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="font-bold text-blue-700 text-sm">{fmt(d.value_net)}</p>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-500'}`}>
+                                {d.status}
+                              </span>
+                            </div>
+                          </div>
+                          {(d.start_date || d.end_date) && (
+                            <p className="text-[11px] text-gray-400 mt-1.5">📅 {d.start_date || '?'} → {d.end_date || '?'}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }
