@@ -12,9 +12,10 @@ const supabase = createClient(
 )
 
 const RESEND_API_KEY    = process.env.RESEND_API_KEY
-const RECIPIENT_EMAILS  = (process.env.RECIPIENT_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
-const WHATSAPP_PHONE    = process.env.WHATSAPP_PHONE     // e.g. 923001234567
-const CALLMEBOT_APIKEY  = process.env.CALLMEBOT_APIKEY
+const RECIPIENT_EMAILS  = ['digitalsalesai0@gmail.com']  // must match your Resend account email
+const GREENAPI_INSTANCE = process.env.GREENAPI_INSTANCE
+const GREENAPI_TOKEN    = process.env.GREENAPI_TOKEN
+const WHATSAPP_RECIPIENTS = (process.env.WHATSAPP_RECIPIENTS || '').split(',').map(n => n.trim()).filter(Boolean)
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -390,16 +391,22 @@ async function sendEmail(subject, html) {
 }
 
 async function sendWhatsApp(message) {
-  if (!WHATSAPP_PHONE || !CALLMEBOT_APIKEY) {
-    console.log('⚠️  CallMeBot not configured — skipping WhatsApp')
+  if (!GREENAPI_INSTANCE || !GREENAPI_TOKEN || WHATSAPP_RECIPIENTS.length === 0) {
+    console.log('⚠️  Green API not configured — skipping WhatsApp')
     return
   }
-  const encoded = encodeURIComponent(message)
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${WHATSAPP_PHONE}&text=${encoded}&apikey=${CALLMEBOT_APIKEY}`
-  const res = await fetch(url)
-  const text = await res.text()
-  if (res.ok) console.log('✅ WhatsApp sent')
-  else console.error('❌ WhatsApp failed:', text)
+  for (const phone of WHATSAPP_RECIPIENTS) {
+    const chatId = `${phone}@c.us`
+    const url = `https://api.green-api.com/waInstance${GREENAPI_INSTANCE}/sendMessage/${GREENAPI_TOKEN}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId, message }),
+    })
+    const data = await res.json()
+    if (res.ok) console.log(`✅ WhatsApp sent to ${phone}:`, data.idMessage)
+    else console.error(`❌ WhatsApp failed for ${phone}:`, data)
+  }
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
