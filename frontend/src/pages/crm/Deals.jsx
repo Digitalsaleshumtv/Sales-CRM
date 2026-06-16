@@ -1,25 +1,47 @@
-﻿import { useEffect, useState } from 'react'
-import { Plus, Search, X, Download } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus, Search, X, Download, LayoutList, Columns, Phone, Calendar, Clock, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { notifyAdmin } from '../../lib/notify'
 import { downloadExcel } from '../../lib/exportExcel'
 
 const DEAL_TYPES = ['Drama Sponsorship','Social Media Posts','Website Banners','Exclusive Content','Product Integration','Drama Integration','Podcast','Webseries','Event Sponsorship','Branded Content Package']
-const CHANNELS = ['HUM TV','Masala TV','HUM News','HUM Network']
-const STATUSES = ['Prospecting','Pitch Sent','In Negotiation','Under Process','Locked','RO Received','Billed','Sent to Finance','Completed','Cancelled']
-const TIERS = ['Presenting','Powered By','Associated']
+const CHANNELS   = ['HUM TV','Masala TV','HUM News','HUM Network']
+const STATUSES   = ['Prospecting','Pitch Sent','In Negotiation','Under Process','Locked','RO Received','Billed','Sent to Finance','Completed','Cancelled']
+const TIERS      = ['Presenting','Powered By','Associated']
+const KANBAN_STAGES = ['Prospecting','Pitch Sent','In Negotiation','Under Process','Locked','RO Received','Billed']
 
 const STATUS_COLORS = {
-  Prospecting: 'bg-gray-100 text-gray-600',
-  'Pitch Sent': 'bg-blue-100 text-blue-700',
-  'In Negotiation': 'bg-yellow-100 text-yellow-700',
-  'Under Process': 'bg-orange-100 text-orange-700',
-  Locked: 'bg-purple-100 text-purple-700',
-  'RO Received': 'bg-indigo-100 text-indigo-700',
-  Billed: 'bg-green-100 text-green-700',
-  'Sent to Finance': 'bg-teal-100 text-teal-700',
-  Completed: 'bg-green-200 text-green-800',
-  Cancelled: 'bg-red-100 text-red-600',
+  Prospecting:    'bg-gray-100 text-gray-600',
+  'Pitch Sent':   'bg-blue-100 text-blue-700',
+  'In Negotiation':'bg-yellow-100 text-yellow-700',
+  'Under Process':'bg-orange-100 text-orange-700',
+  Locked:         'bg-purple-100 text-purple-700',
+  'RO Received':  'bg-indigo-100 text-indigo-700',
+  Billed:         'bg-green-100 text-green-700',
+  'Sent to Finance':'bg-teal-100 text-teal-700',
+  Completed:      'bg-green-200 text-green-800',
+  Cancelled:      'bg-red-100 text-red-600',
+}
+
+const STAGE_HEADER_COLORS = {
+  Prospecting:    'bg-gray-50 border-gray-200',
+  'Pitch Sent':   'bg-blue-50 border-blue-200',
+  'In Negotiation':'bg-yellow-50 border-yellow-200',
+  'Under Process':'bg-orange-50 border-orange-200',
+  Locked:         'bg-purple-50 border-purple-200',
+  'RO Received':  'bg-indigo-50 border-indigo-200',
+  Billed:         'bg-green-50 border-green-200',
+}
+
+const TL_ICON_COLORS = {
+  Call: 'bg-blue-100 text-blue-600',
+  Email: 'bg-gray-100 text-gray-600',
+  'In-Person Meeting': 'bg-green-100 text-green-600',
+  WhatsApp: 'bg-green-100 text-green-600',
+  Presentation: 'bg-purple-100 text-purple-600',
+  'In-Person': 'bg-teal-100 text-teal-600',
+  Online: 'bg-sky-100 text-sky-600',
+  'Phone Call': 'bg-blue-100 text-blue-600',
 }
 
 function fmt(n) {
@@ -30,17 +52,23 @@ function fmt(n) {
 }
 
 export default function Deals() {
-  const [deals, setDeals] = useState([])
-  const [clients, setClients] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [deals, setDeals]         = useState([])
+  const [clients, setClients]     = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [search, setSearch]       = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [view, setView]           = useState('list')
   const [showModal, setShowModal] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState(defaultForm())
+  const [saving, setSaving]       = useState(false)
+  const [form, setForm]           = useState(defaultForm())
+
+  // Timeline drawer
+  const [selectedDeal, setSelectedDeal] = useState(null)
+  const [timeline, setTimeline]   = useState([])
+  const [tlLoading, setTlLoading] = useState(false)
 
   function defaultForm() {
-    return { name: '', type: DEAL_TYPES[0], client_id: '', channel: [], tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', agency_commission_pct: 15 }
+    return { name: '', type: DEAL_TYPES[0], client_id: '', channel: [], tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', assigned_to: '', agency_commission_pct: 15 }
   }
 
   useEffect(() => {
@@ -69,33 +97,65 @@ export default function Deals() {
     setSaving(false)
   }
 
+  async function updateStatus(dealId, status) {
+    await supabase.from('deals').update({ status }).eq('id', dealId)
+    fetchDeals()
+  }
+
+  async function openTimeline(deal) {
+    setSelectedDeal(deal)
+    setTlLoading(true)
+    const [{ data: fu }, { data: ml }] = await Promise.all([
+      supabase.from('follow_ups').select('*').eq('deal_id', deal.id).order('follow_up_date'),
+      supabase.from('meeting_logs').select('*').eq('deal_id', deal.id).order('meeting_date'),
+    ])
+    const combined = [
+      ...(fu || []).map(f => ({ ...f, _kind: 'followup', _date: f.follow_up_date })),
+      ...(ml || []).map(m => ({ ...m, _kind: 'meeting',  _date: m.meeting_date })),
+    ].sort((a, b) => new Date(b._date) - new Date(a._date))
+    setTimeline(combined)
+    setTlLoading(false)
+  }
+
   const filtered = deals.filter(d => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase()) || (d.clients?.name || '').toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'all' || d.status === filterStatus
     return matchSearch && matchStatus
   })
 
+  // Stage funnel summary
+  const stageData = KANBAN_STAGES.map(s => ({
+    stage: s,
+    count: deals.filter(d => d.status === s).length,
+    value: deals.filter(d => d.status === s).reduce((sum, d) => sum + (d.value_net || 0), 0),
+  }))
+  const maxCount = Math.max(...stageData.map(s => s.count), 1)
+
   return (
     <div className="p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Deals</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{deals.length} total deals</p>
+          <p className="text-sm text-gray-500 mt-0.5">{deals.length} total · {filtered.length} shown</p>
         </div>
         <div className="flex gap-2">
+          {/* View toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setView('list')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view==='list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+              <LayoutList size={13}/> List
+            </button>
+            <button onClick={() => setView('board')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view==='board' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+              <Columns size={13}/> Board
+            </button>
+          </div>
           <button onClick={() => downloadExcel(
             filtered.map(d => ({
-              'Deal Name': d.name,
-              Client: d.clients?.name || '',
-              Type: d.type,
-              Channel: (d.channel || []).join(', '),
-              Tier: d.tier || '',
-              Status: d.status,
-              'Value Net (PKR)': d.value_net || 0,
-              'Value Gross (PKR)': d.value_gross || 0,
-              'Start Date': d.start_date || '',
-              'End Date': d.end_date || '',
-              Notes: d.notes || '',
+              'Deal Name': d.name, Client: d.clients?.name || '', Type: d.type,
+              Channel: (d.channel || []).join(', '), Tier: d.tier || '', Status: d.status,
+              'Value Net (PKR)': d.value_net || 0, 'Value Gross (PKR)': d.value_gross || 0,
+              'Start Date': d.start_date || '', 'End Date': d.end_date || '',
+              'Assigned To': d.assigned_to || '', Notes: d.notes || '',
             })),
             'Deals', 'Deals'
           )} className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
@@ -107,6 +167,29 @@ export default function Deals() {
         </div>
       </div>
 
+      {/* Stage funnel bar */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Pipeline Funnel</p>
+        <div className="space-y-1.5">
+          {stageData.map(s => (
+            <div key={s.stage} className="flex items-center gap-3">
+              <span className="text-xs text-gray-500 w-28 flex-shrink-0 truncate">{s.stage}</span>
+              <div className="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div
+                  className={`h-5 rounded-full transition-all ${STATUS_COLORS[s.stage]?.replace('text-', 'bg-').replace('100', '400').replace('bg-gray-400','bg-gray-300') || 'bg-gray-300'}`}
+                  style={{ width: `${s.count ? Math.max((s.count / maxCount) * 100, 4) : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-2 w-32 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-700">{s.count}</span>
+                <span className="text-xs text-gray-400">{fmt(s.value)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -118,51 +201,191 @@ export default function Deals() {
         </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-lg">No deals found</p>
-            <p className="text-sm mt-1">Create your first deal using the button above</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                {['Deal Name','Client','Type','Channel','Value (Net)','GST','Gross','Status','Dates'].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map(d => (
-                <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{d.name}</p>
-                    {d.tier && <p className="text-xs text-gray-400">{d.tier}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{d.clients?.name || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{d.type}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{(d.channel || []).join(', ') || '—'}</td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_net)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmt(d.gst)}</td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_gross)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-600'}`}>{d.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {d.start_date && <span>{d.start_date}</span>}
-                    {d.start_date && d.end_date && <span> → </span>}
-                    {d.end_date && <span>{d.end_date}</span>}
-                    {!d.start_date && '—'}
-                  </td>
+      {/* LIST VIEW */}
+      {view === 'list' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16 text-gray-400"><p className="text-lg">No deals found</p></div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  {['Deal Name','Client','Type','Channel','Value (Net)','GST','Gross','Status','Assigned To','Dates',''].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(d => (
+                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{d.name}</p>
+                      {d.tier && <p className="text-xs text-gray-400">{d.tier}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{d.clients?.name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{d.type}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{(d.channel || []).join(', ') || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_net)}</td>
+                    <td className="px-4 py-3 text-gray-500">{fmt(d.gst)}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_gross)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-600'}`}>{d.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{d.assigned_to || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400">
+                      {d.start_date && <span>{d.start_date}</span>}
+                      {d.start_date && d.end_date && <span> → </span>}
+                      {d.end_date && <span>{d.end_date}</span>}
+                      {!d.start_date && '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => openTimeline(d)} className="text-xs text-brand-500 hover:text-brand-700 flex items-center gap-0.5 whitespace-nowrap">
+                        Activity <ChevronRight size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* BOARD VIEW */}
+      {view === 'board' && !loading && (
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-3" style={{ minWidth: `${KANBAN_STAGES.length * 260}px` }}>
+            {KANBAN_STAGES.map(stage => {
+              const stageDeals = filtered.filter(d => d.status === stage)
+              const stageVal = stageDeals.reduce((s, d) => s + (d.value_net || 0), 0)
+              return (
+                <div key={stage} className="w-60 flex-shrink-0">
+                  <div className={`rounded-t-xl px-3 py-2.5 border ${STAGE_HEADER_COLORS[stage] || 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[stage]}`}>{stage}</span>
+                      <span className="text-xs text-gray-500">{stageDeals.length}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{fmt(stageVal)}</p>
+                  </div>
+                  <div className="space-y-2 mt-2">
+                    {stageDeals.length === 0 && (
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl h-20 flex items-center justify-center">
+                        <p className="text-xs text-gray-300">No deals</p>
+                      </div>
+                    )}
+                    {stageDeals.map(d => (
+                      <div key={d.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 hover:border-brand-200 hover:shadow-md transition-all cursor-pointer group"
+                        onClick={() => openTimeline(d)}>
+                        <p className="text-sm font-semibold text-gray-800 leading-tight mb-1">{d.name}</p>
+                        <p className="text-xs text-gray-500 mb-2">{d.clients?.name || '—'}</p>
+                        {d.value_net && <p className="text-sm font-bold text-brand-600 mb-2">{fmt(d.value_net)}</p>}
+                        {d.assigned_to && <p className="text-xs text-gray-400 mb-2">{d.assigned_to}</p>}
+                        {/* Quick status move */}
+                        <div className="flex gap-1 mt-2">
+                          {(() => {
+                            const idx = KANBAN_STAGES.indexOf(stage)
+                            const buttons = []
+                            if (idx > 0) buttons.push(
+                              <button key="prev" onClick={e => { e.stopPropagation(); updateStatus(d.id, KANBAN_STAGES[idx-1]) }}
+                                className="flex-1 text-[10px] bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors truncate">
+                                ← {KANBAN_STAGES[idx-1].split(' ')[0]}
+                              </button>
+                            )
+                            if (idx < KANBAN_STAGES.length - 1) buttons.push(
+                              <button key="next" onClick={e => { e.stopPropagation(); updateStatus(d.id, KANBAN_STAGES[idx+1]) }}
+                                className="flex-1 text-[10px] bg-brand-50 border border-brand-200 text-brand-600 hover:bg-brand-100 px-2 py-1 rounded-lg transition-colors truncate">
+                                {KANBAN_STAGES[idx+1].split(' ')[0]} →
+                              </button>
+                            )
+                            return buttons
+                          })()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TIMELINE DRAWER */}
+      {selectedDeal && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setSelectedDeal(null)} />
+          <div className="relative bg-white w-full max-w-md shadow-2xl flex flex-col h-full overflow-hidden">
+            {/* Drawer header */}
+            <div className="px-5 py-4 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm leading-tight">{selectedDeal.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedDeal.clients?.name || '—'} · {fmt(selectedDeal.value_net)}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[selectedDeal.status] || ''}`}>{selectedDeal.status}</span>
+                  <button onClick={() => setSelectedDeal(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+                </div>
+              </div>
+              {selectedDeal.notes && <p className="text-xs text-gray-400 mt-2 line-clamp-2">{selectedDeal.notes}</p>}
+            </div>
+
+            {/* Timeline */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Activity Timeline</p>
+              {tlLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : timeline.length === 0 ? (
+                <div className="text-center py-12 text-gray-300">
+                  <Clock size={28} className="mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">No activity logged for this deal yet</p>
+                  <p className="text-xs text-gray-300 mt-1">Add follow-ups or meeting logs in Pipeline</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-100" />
+                  <div className="space-y-5">
+                    {timeline.map((item, i) => (
+                      <div key={item.id} className="flex gap-4 relative">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${TL_ICON_COLORS[item.type] || 'bg-gray-100 text-gray-500'}`}>
+                          {item._kind === 'followup' ? <Phone size={13} /> : <Calendar size={13} />}
+                        </div>
+                        <div className="flex-1 min-w-0 bg-gray-50 rounded-xl p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-700">{item.type}</span>
+                            <span className="text-xs text-gray-400">{item._date}</span>
+                          </div>
+                          {item._kind === 'followup' ? (
+                            <>
+                              <p className="text-sm text-gray-700">{item.notes}</p>
+                              {item.next_action && <p className="text-xs text-brand-600 mt-1.5">→ {item.next_action}</p>}
+                              {item.status && (
+                                <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1.5 ${item.status === 'Done' ? 'bg-green-100 text-green-700' : item.status === 'Overdue' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'}`}>
+                                  {item.status}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm text-gray-700 font-medium">{item.outcome}</p>
+                              {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
+                              {item.next_steps && <p className="text-xs text-brand-600 mt-1.5">Next: {item.next_steps}</p>}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Deal Modal */}
       {showModal && (
@@ -183,6 +406,13 @@ export default function Deals() {
                   <select value={form.client_id} onChange={e => setForm({...form, client_id: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
                     <option value="">Select client...</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                  <select value={form.assigned_to} onChange={e => setForm({...form, assigned_to: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <option value="">Select...</option>
+                    {['Aamish Mirza','Sarfaraz','Talal','Asif','Erum','Ans','Meesum'].map(n => <option key={n}>{n}</option>)}
                   </select>
                 </div>
                 <div>

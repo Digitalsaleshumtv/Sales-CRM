@@ -17,6 +17,10 @@ const useAppStore = create((set) => ({
   revenueUnlocked: false,
   setRevenueUnlocked: (val) => set({ revenueUnlocked: val }),
 
+  // Global search
+  searchOpen: false,
+  setSearchOpen: (val) => set({ searchOpen: val }),
+
   // Notifications
   notifications: [],
   addNotification: (n) => set((s) => ({ notifications: [n, ...s.notifications] })),

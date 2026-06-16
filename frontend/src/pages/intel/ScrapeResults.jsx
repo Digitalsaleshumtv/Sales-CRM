@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Search, Globe, ExternalLink, ChevronDown, ChevronRight, RefreshCw, Tag } from 'lucide-react'
+import { Search, Globe, ExternalLink, ChevronDown, ChevronRight, RefreshCw, Tag, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 
 function timeAgo(ts) {
@@ -68,6 +69,18 @@ export default function ScrapeResults() {
   const latestBrands = latestRun.flatMap(r => (r.brands_detected || []).map(b => ({ brand: b, site: r.sites?.nickname || r.sites?.url || 'Unknown' })))
   const latestTs = results[0]?.scraped_at
 
+  // Brand frequency: count total detections per brand across all scrape runs
+  const brandFreq = (() => {
+    const counts = {}
+    results.forEach(r => (r.brands_detected || []).forEach(b => { counts[b] = (counts[b] || 0) + 1 }))
+    return Object.entries(counts)
+      .map(([brand, count]) => ({ brand, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12)
+  })()
+
+  const BRAND_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#a3e635','#fb923c','#818cf8']
+
   const toggle = id => setExpanded(e => ({ ...e, [id]: !e[id] }))
 
   return (
@@ -120,6 +133,30 @@ export default function ScrapeResults() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Brand frequency trends */}
+      {brandFreq.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={16} className="text-brand-500" />
+            <h2 className="font-semibold text-gray-800">Brand Frequency — All Time</h2>
+            <span className="text-xs text-gray-400 ml-1">how many times detected across all scrape runs</span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={brandFreq} layout="vertical" margin={{ left: 10, right: 50 }}>
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="brand" width={110} tick={{ fontSize: 11, fill: '#374151' }} />
+              <Tooltip
+                formatter={v => [`${v} detection${v !== 1 ? 's' : ''}`, 'Count']}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <Bar dataKey="count" radius={[0,6,6,0]} label={{ position:'right', fontSize:11, fill:'#6b7280' }}>
+                {brandFreq.map((_, i) => <Cell key={i} fill={BRAND_COLORS[i % BRAND_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 

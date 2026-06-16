@@ -5,6 +5,7 @@ import useAppStore from '../../store/useAppStore'
 import { supabase } from '../../lib/supabase'
 import NotificationCenter from './NotificationCenter'
 
+
 const CRM_TABS = [
   { path: '/crm', label: 'Home' },
   { path: '/crm/shows', label: 'Shows' },
@@ -36,7 +37,7 @@ const INTEL_TABS = [
 export default function TopNav() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { activeModule, setActiveModule, user } = useAppStore()
+  const { activeModule, setActiveModule, user, setSearchOpen } = useAppStore()
   const tabsRef = useRef(null)
   const scrollTabs = dir => tabsRef.current?.scrollBy({ left: dir * 160, behavior: 'smooth' })
 
@@ -90,6 +91,15 @@ export default function TopNav() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+            title="Search (Ctrl+K)"
+          >
+            <Search size={13} />
+            <span className="hidden md:block">Search</span>
+            <kbd className="hidden md:block text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
+          </button>
           <NotificationCenter />
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <div className="w-7 h-7 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-semibold">

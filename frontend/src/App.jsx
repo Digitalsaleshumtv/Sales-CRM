@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import useAppStore from './store/useAppStore'
 import TopNav from './components/shared/TopNav'
+import GlobalSearch from './components/shared/GlobalSearch'
 import Login from './pages/Login'
 import PasscodeGate from './components/shared/PasscodeGate'
 
@@ -10,6 +11,7 @@ import PasscodeGate from './components/shared/PasscodeGate'
 import Dashboard from './pages/crm/Dashboard'
 import Shows from './pages/crm/Shows'
 import Clients from './pages/crm/Clients'
+import ClientProfile from './pages/crm/ClientProfile'
 import Deals from './pages/crm/Deals'
 import Pipeline from './pages/crm/Pipeline'
 import Revenue from './pages/crm/Revenue'
@@ -33,14 +35,30 @@ import Brands from './pages/intel/Brands'
 import CompetitorSocial from './pages/intel/CompetitorSocial'
 
 function AppLayout() {
+  const { searchOpen, setSearchOpen } = useAppStore()
+
+  // Cmd+K / Ctrl+K to open search
+  useEffect(() => {
+    const handler = e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setSearchOpen])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <TopNav />
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <main className="max-w-screen-2xl mx-auto">
         <Routes>
           <Route path="/crm" element={<Dashboard />} />
           <Route path="/crm/shows" element={<Shows />} />
           <Route path="/crm/clients" element={<Clients />} />
+          <Route path="/crm/clients/:id" element={<ClientProfile />} />
           <Route path="/crm/deals" element={<Deals />} />
           <Route path="/crm/pipeline" element={<Pipeline />} />
           <Route path="/crm/revenue" element={<PasscodeGate type="revenue"><Revenue /></PasscodeGate>} />
