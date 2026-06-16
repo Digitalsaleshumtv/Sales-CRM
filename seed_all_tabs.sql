@@ -22,7 +22,7 @@ INSERT INTO public.clients (name, type, industry, region, status, contact_name, 
   ('BYD Pakistan',              'brand', ARRAY['Automotive'],              'Karachi',    'active', 'Chen Wei',           'chen.wei@byd.pk',            '+92-21-3529-9990',   800000, 'EV entrant exploring drama integration and social media presence.'),
   ('Avari Hotels',              'brand', ARRAY['Travel & Tourism'],        'Lahore',     'active', 'Nilofer Saigol',     'n.saigol@avari.com',         '+92-42-3636-5566',  3500000, 'Barter deal partner — Spelling Whizz 2025 hotel sponsor.'),
   ('FBR',                       'brand', ARRAY['Government'],              'Islamabad',  'active', 'Raja Jahangir',      'r.jahangir@fbr.gov.pk',      '+92-51-9205-3330',   600000, 'Tax awareness campaigns via Resonance Digital and DGS.')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────
 -- 2. CLIENTS — AGENCIES
@@ -43,7 +43,7 @@ INSERT INTO public.clients (name, type, industry, region, status, contact_name, 
   ('Hakuna Matata',             'agency', ARRAY['Technology'],             'Islamabad',  'active', 'Usama Khan',         'usama@hakunamatata.pk',      '+92-51-2878-5050',  2500000, 'SNGPL and PSER recurring advertiser. Islamabad-based digital agency.'),
   ('IO Digital',                'agency', ARRAY['Technology'],             'Karachi',    'active', 'Imad Baig',          'imad@iodigital.pk',          '+92-21-3440-6060',  1500000, 'Haier campaigns on HUM News website and digital placements.'),
   ('Digital Marvels',           'agency', ARRAY['Technology'],             'Lahore',     'active', 'Raheela Saeed',      'raheela@digitalmarvels.pk',  '+92-42-3512-7070',  2000000, 'SMOG and DGPR awareness campaigns. Growing govt-focused digital agency.')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────
 -- 3. SHOWS
