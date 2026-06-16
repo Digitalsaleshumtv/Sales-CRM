@@ -29,7 +29,7 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY:            ${{ secrets.RESEND_API_KEY }}
-          RECIPIENT_EMAILS:          ${{ secrets.RECIPIENT_EMAILS }}
-          WHATSAPP_PHONE:            ${{ secrets.WHATSAPP_PHONE }}
-          CALLMEBOT_APIKEY:          ${{ secrets.CALLMEBOT_APIKEY }}
+          GREENAPI_INSTANCE:         ${{ secrets.GREENAPI_INSTANCE }}
+          GREENAPI_TOKEN:            ${{ secrets.GREENAPI_TOKEN }}
+          WHATSAPP_RECIPIENTS:       ${{ secrets.WHATSAPP_RECIPIENTS }}
         run: node scripts/daily-briefing.mjs
