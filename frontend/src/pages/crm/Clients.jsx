@@ -21,6 +21,7 @@ export default function Clients() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterCity, setFilterCity] = useState('all')
+  const [filterType, setFilterType] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(defaultForm())
@@ -49,13 +50,15 @@ export default function Clients() {
   }
 
   const cityCounts = { all: clients.length, ...REGIONS.reduce((acc, r) => ({ ...acc, [r]: clients.filter(c => c.region === r).length }), {}) }
+  const typeCounts = { all: clients.length, brand: clients.filter(c => c.type === 'brand').length, agency: clients.filter(c => c.type === 'agency').length }
 
   const filtered = clients.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.contact_name || '').toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'all' || c.status === filterStatus
     const matchCity   = filterCity   === 'all' || c.region === filterCity
-    return matchSearch && matchStatus && matchCity
+    const matchType   = filterType   === 'all' || c.type === filterType
+    return matchSearch && matchStatus && matchCity && matchType
   })
 
   return (
@@ -88,6 +91,23 @@ export default function Clients() {
             <Plus size={16} /> Add Client
           </button>
         </div>
+      </div>
+
+      {/* Type Filter */}
+      <div className="flex gap-2">
+        {[['all', 'All Types'], ['brand', 'Direct Brands'], ['agency', 'Agencies']].map(([val, label]) => (
+          <button key={val} onClick={() => setFilterType(val)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              filterType === val
+                ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}>
+            {label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${filterType === val ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {typeCounts[val] || 0}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* City Tabs */}
