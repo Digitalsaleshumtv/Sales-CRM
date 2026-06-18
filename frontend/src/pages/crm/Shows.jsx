@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, X, Play, Pencil, Trash2, Check, FileDown, Briefcase, Upload } from 'lucide-react'
+import { Plus, X, Play, Pencil, Trash2, FileDown, Briefcase, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { exportProgramPPT } from '../../lib/programPPT'
@@ -101,11 +101,7 @@ function SponsorRow({ idx, row, clients, onChange, onRemove }) {
 }
 
 function defaultForm() {
-  return {
-    name: '', channel: 'HUM TV', category: 'Drama', schedule: '',
-    status: 'Live', start_date: '', end_date: '',
-    youtube_upload: false, episode_count: '', paid_drama_budget: '',
-  }
+  return { name: '', channel: 'HUM TV', category: 'Drama', schedule: '', status: 'Live', start_date: '', end_date: '', youtube_upload: false, episode_count: '', paid_drama_budget: '' }
 }
 
 async function uploadLogo(showId, idx, file) {
@@ -126,16 +122,74 @@ async function resolveSponsors(showId, rows) {
     if (r._logoFile) {
       try { logo_url = await uploadLogo(showId, i, r._logoFile) } catch (e) { console.error('Logo upload failed:', e) }
     }
-    out.push({
-      show_id:       showId,
-      sponsor_label: r.sponsor_label,
-      client_id:     r.client_id  || null,
-      sponsor_name:  r.sponsor_name || null,
-      logo_url:      logo_url     || null,
-      sort_order:    i,
-    })
+    out.push({ show_id: showId, sponsor_label: r.sponsor_label, client_id: r.client_id || null, sponsor_name: r.sponsor_name || null, logo_url: logo_url || null, sort_order: i })
   }
   return out
+}
+
+// ── Shared Program form fields ─────────────────────────────────────────────
+function ProgramFields({ form, setForm }) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="col-span-2">
+        <label className="block text-xs font-medium text-gray-700 mb-1">Program Name *</label>
+        <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder="e.g. HUM Spelling Whizz 2026" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
+        <select value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          {CHANNELS.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+        <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+        <select value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          {STATUSES.map(s => <option key={s}>{s}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Air Schedule</label>
+        <input value={form.schedule} onChange={e => setForm(f => ({...f, schedule: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder="e.g. Mon–Tue 8:00 PM" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+        <input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+        <input type="date" value={form.end_date} onChange={e => setForm(f => ({...f, end_date: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Episode Count</label>
+        <input type="number" value={form.episode_count} onChange={e => setForm(f => ({...f, episode_count: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="e.g. 26" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Paid Budget (PKR)</label>
+        <input type="number" value={form.paid_drama_budget} onChange={e => setForm(f => ({...f, paid_drama_budget: e.target.value}))}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="0" />
+      </div>
+      <div className="col-span-2 flex items-center gap-2">
+        <input type="checkbox" id="yt_f" checked={form.youtube_upload} onChange={e => setForm(f => ({...f, youtube_upload: e.target.checked}))} className="rounded" />
+        <label htmlFor="yt_f" className="text-sm text-gray-700 flex items-center gap-1"><Play size={14} className="text-red-500" /> Uploaded to YouTube</label>
+      </div>
+    </div>
+  )
 }
 
 export default function Shows() {
@@ -145,15 +199,22 @@ export default function Shows() {
   const [clients, setClients]              = useState([])
   const [dealCounts, setDealCounts]        = useState({})
   const [loading, setLoading]              = useState(true)
-  const [showModal, setShowModal]          = useState(false)
   const [saving, setSaving]                = useState(false)
   const [filterStatus, setFilterStatus]    = useState('all')
   const [filterCat, setFilterCat]          = useState('all')
-  const [form, setForm]                    = useState(defaultForm())
-  const [formSponsors, setFormSponsors]    = useState([emptyRow()])
-  const [editingId, setEditingId]          = useState(null)
-  const [editSponsors, setEditSponsors]    = useState([])
-  const [deletingId, setDeletingId]        = useState(null)
+
+  // Add modal
+  const [showModal, setShowModal]        = useState(false)
+  const [form, setForm]                  = useState(defaultForm())
+  const [formSponsors, setFormSponsors]  = useState([emptyRow()])
+
+  // Edit modal
+  const [editModal, setEditModal]        = useState(false)
+  const [editId, setEditId]              = useState(null)
+  const [editForm, setEditForm]          = useState(defaultForm())
+  const [editSponsors, setEditSponsors]  = useState([])
+
+  const [deletingId, setDeletingId]      = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -169,14 +230,12 @@ export default function Shows() {
       supabase.from('deals').select('id,program_id,value_net,status,name,clients(name)').not('program_id','is',null),
     ])
     setShows(showsData || [])
-
     const byShow = {}
     ;(sponsorsData || []).forEach(s => {
       if (!byShow[s.show_id]) byShow[s.show_id] = []
       byShow[s.show_id].push(s)
     })
     setSponsorsByShow(byShow)
-
     const counts = {}
     ;(dealsData || []).forEach(d => {
       if (!counts[d.program_id]) counts[d.program_id] = { count: 0, total: 0, deals: [] }
@@ -194,44 +253,45 @@ export default function Shows() {
 
   async function saveShow(e) {
     e.preventDefault(); setSaving(true)
-    const payload = {
-      ...form,
-      episode_count:     form.episode_count     ? Number(form.episode_count)     : null,
-      paid_drama_budget: form.paid_drama_budget ? Number(form.paid_drama_budget) : null,
-      start_date:        form.start_date        || null,
-      end_date:          form.end_date          || null,
-    }
+    const payload = { ...form, episode_count: form.episode_count ? Number(form.episode_count) : null, paid_drama_budget: form.paid_drama_budget ? Number(form.paid_drama_budget) : null, start_date: form.start_date || null, end_date: form.end_date || null }
     const { data, error } = await supabase.from('shows').insert([payload]).select().single()
     if (error) { alert(error.message); setSaving(false); return }
-
     const resolved = await resolveSponsors(data.id, formSponsors)
     if (resolved.length > 0) await supabase.from('show_sponsors').insert(resolved)
-
     setShowModal(false); setForm(defaultForm()); setFormSponsors([emptyRow()]); fetchAll()
     setSaving(false)
   }
 
-  function startEditSponsors(show) {
+  function openEdit(show) {
+    setEditId(show.id)
+    setEditForm({
+      name:              show.name             || '',
+      channel:           show.channel          || 'HUM TV',
+      category:          show.category         || 'Drama',
+      schedule:          show.schedule         || '',
+      status:            show.status           || 'Live',
+      start_date:        show.start_date       || '',
+      end_date:          show.end_date         || '',
+      youtube_upload:    show.youtube_upload   || false,
+      episode_count:     show.episode_count    ? String(show.episode_count)    : '',
+      paid_drama_budget: show.paid_drama_budget ? String(show.paid_drama_budget) : '',
+    })
     const existing = (sponsorsByShow[show.id] || []).map(s => ({
-      id:            s.id,
-      sponsor_label: s.sponsor_label,
-      client_id:     s.client_id    || '',
-      sponsor_name:  s.sponsor_name || '',
-      logo_url:      s.logo_url     || '',
-      _logoFile:     null,
-      _tmpUrl:       '',
+      id: s.id, sponsor_label: s.sponsor_label, client_id: s.client_id || '', sponsor_name: s.sponsor_name || '', logo_url: s.logo_url || '', _logoFile: null, _tmpUrl: '',
     }))
     setEditSponsors(existing.length ? existing : [emptyRow()])
-    setEditingId(show.id)
+    setEditModal(true)
   }
 
-  async function saveEditSponsors(showId) {
-    setSaving(true)
-    await supabase.from('show_sponsors').delete().eq('show_id', showId)
-    const resolved = await resolveSponsors(showId, editSponsors)
+  async function saveEdit(e) {
+    e.preventDefault(); setSaving(true)
+    const payload = { ...editForm, episode_count: editForm.episode_count ? Number(editForm.episode_count) : null, paid_drama_budget: editForm.paid_drama_budget ? Number(editForm.paid_drama_budget) : null, start_date: editForm.start_date || null, end_date: editForm.end_date || null }
+    const { error } = await supabase.from('shows').update(payload).eq('id', editId)
+    if (error) { alert(error.message); setSaving(false); return }
+    await supabase.from('show_sponsors').delete().eq('show_id', editId)
+    const resolved = await resolveSponsors(editId, editSponsors)
     if (resolved.length > 0) await supabase.from('show_sponsors').insert(resolved)
-    setEditingId(null); fetchAll()
-    setSaving(false)
+    setEditModal(false); fetchAll(); setSaving(false)
   }
 
   async function deleteShow(id) {
@@ -246,17 +306,10 @@ export default function Shows() {
   }
 
   async function handlePPT(show) {
-    const linked      = dealCounts[show.id]?.deals || []
-    const sponsorList = sponsorsByShow[show.id]    || []
-    await exportProgramPPT(show, linked, sponsorList)
+    await exportProgramPPT(show, dealCounts[show.id]?.deals || [], sponsorsByShow[show.id] || [])
   }
 
-  const filtered = shows.filter(s => {
-    const ok1 = filterStatus === 'all' || s.status   === filterStatus
-    const ok2 = filterCat    === 'all' || s.category === filterCat
-    return ok1 && ok2
-  })
-
+  const filtered = shows.filter(s => (filterStatus === 'all' || s.status === filterStatus) && (filterCat === 'all' || s.category === filterCat))
   const live     = shows.filter(s => s.status === 'Live').length
   const upcoming = shows.filter(s => s.status === 'Upcoming').length
 
@@ -265,6 +318,29 @@ export default function Shows() {
     if (n >= 10_000_000) return `₨${(n/10_000_000).toFixed(1)}Cr`
     if (n >= 100_000)    return `₨${(n/100_000).toFixed(1)}L`
     return `₨${Number(n).toLocaleString()}`
+  }
+
+  // ── Shared sponsor section JSX ─────────────────────────────────────────────
+  function SponsorSection({ rows, setRows }) {
+    return (
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Sponsorship</p>
+          <button type="button" onClick={() => setRows(p => [...p, emptyRow()])}
+            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+            <Plus size={12} /> Add Slot
+          </button>
+        </div>
+        <div className="space-y-2">
+          {rows.map((row, idx) => (
+            <SponsorRow key={idx} idx={idx} row={row} clients={clients}
+              onChange={(i, k, v) => updateRow(setRows, i, k, v)}
+              onRemove={i => setRows(p => p.filter((_, j) => j !== i))}
+            />
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -294,9 +370,7 @@ export default function Shows() {
               <button key={ev.label} onClick={() => handleEventClick(ev.category)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${isActive ? 'bg-white text-brand-700 border-white shadow-lg scale-105' : 'bg-white/20 border-white/30 text-white hover:bg-white/30'}`}>
                 {ev.label}
-                {ev.label === 'HUM Spelling Whizz' && (
-                  <span className="ml-1.5 text-[10px] bg-green-400 text-white px-1.5 py-0.5 rounded-full font-bold">LIVE</span>
-                )}
+                {ev.label === 'HUM Spelling Whizz' && <span className="ml-1.5 text-[10px] bg-green-400 text-white px-1.5 py-0.5 rounded-full font-bold">LIVE</span>}
               </button>
             )
           })}
@@ -325,7 +399,7 @@ export default function Shows() {
         ))}
       </div>
 
-      {/* Cards grid */}
+      {/* Cards */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
@@ -350,7 +424,7 @@ export default function Shows() {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[show.status]}`}>{show.status}</span>
                     <button onClick={() => handlePPT(show)} className="p-1 text-gray-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg" title="Export PPT"><FileDown size={13} /></button>
-                    <button onClick={() => startEditSponsors(show)} className="p-1 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg" title="Edit sponsors"><Pencil size={13} /></button>
+                    <button onClick={() => openEdit(show)} className="p-1 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg" title="Edit program"><Pencil size={13} /></button>
                     <button onClick={() => setDeletingId(show.id)} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={13} /></button>
                   </div>
                 </div>
@@ -366,48 +440,21 @@ export default function Shows() {
                   )}
                 </div>
 
-                {/* Sponsors — view */}
-                {editingId !== show.id && (
-                  <div className="space-y-1.5">
-                    {sponsors.length === 0 ? (
-                      <p className="text-[11px] text-orange-400 italic">No sponsors — click ✏️ to add</p>
-                    ) : sponsors.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs gap-2">
-                        <span className="text-gray-400 text-[11px] w-32 flex-shrink-0 truncate">{s.sponsor_label}</span>
-                        <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0">
-                          {s.logo_url && <img src={s.logo_url} alt="" className="h-5 w-auto object-contain max-w-[44px] rounded" />}
-                          <span className="font-medium text-gray-800 truncate">
-                            {s.client?.name || s.sponsor_name || <span className="text-orange-400 font-normal">Open</span>}
-                          </span>
-                        </div>
+                <div className="space-y-1.5">
+                  {sponsors.length === 0 ? (
+                    <p className="text-[11px] text-orange-400 italic">No sponsors — click ✏️ to add</p>
+                  ) : sponsors.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs gap-2">
+                      <span className="text-gray-400 text-[11px] w-32 flex-shrink-0 truncate">{s.sponsor_label}</span>
+                      <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0">
+                        {s.logo_url && <img src={s.logo_url} alt="" className="h-5 w-auto object-contain max-w-[44px] rounded" />}
+                        <span className="font-medium text-gray-800 truncate">
+                          {s.client?.name || s.sponsor_name || <span className="text-orange-400 font-normal">Open</span>}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Sponsors — edit */}
-                {editingId === show.id && (
-                  <div className="space-y-2 bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Sponsorship</p>
-                    {editSponsors.map((row, idx) => (
-                      <SponsorRow key={idx} idx={idx} row={row} clients={clients}
-                        onChange={(i, k, v) => updateRow(setEditSponsors, i, k, v)}
-                        onRemove={i => setEditSponsors(p => p.filter((_, j) => j !== i))}
-                      />
-                    ))}
-                    <button type="button" onClick={() => setEditSponsors(p => [...p, emptyRow()])}
-                      className="w-full border border-dashed border-gray-300 text-gray-500 py-1.5 rounded-lg text-xs hover:bg-white flex items-center justify-center gap-1">
-                      <Plus size={12} /> Add Sponsor Slot
-                    </button>
-                    <div className="flex gap-2 pt-1">
-                      <button onClick={() => setEditingId(null)} className="flex-1 border border-gray-200 text-gray-600 py-1.5 rounded-lg text-xs font-medium hover:bg-white">Cancel</button>
-                      <button onClick={() => saveEditSponsors(show.id)} disabled={saving}
-                        className="flex-1 bg-brand-500 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-brand-600 flex items-center justify-center gap-1 disabled:opacity-60">
-                        <Check size={12} /> {saving ? 'Saving…' : 'Save'}
-                      </button>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-50 text-xs">
                   <div className="flex items-center gap-2 text-gray-400">
@@ -429,7 +476,7 @@ export default function Shows() {
         </div>
       )}
 
-      {/* Add Program Modal */}
+      {/* ── Add Program Modal ───────────────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -438,91 +485,38 @@ export default function Shows() {
               <button onClick={() => { setShowModal(false); setForm(defaultForm()); setFormSponsors([emptyRow()]) }} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
             <form onSubmit={saveShow} className="px-6 py-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Program Name *</label>
-                  <input required value={form.name} onChange={e => setForm({...form,name:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    placeholder="e.g. HUM Spelling Whizz 2026" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
-                  <select value={form.channel} onChange={e => setForm({...form,channel:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                    {CHANNELS.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-                  <select value={form.category} onChange={e => setForm({...form,category:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                  <select value={form.status} onChange={e => setForm({...form,status:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                    {STATUSES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Air Schedule</label>
-                  <input value={form.schedule} onChange={e => setForm({...form,schedule:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    placeholder="e.g. Mon–Tue 8:00 PM" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                  <input type="date" value={form.start_date} onChange={e => setForm({...form,start_date:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                  <input type="date" value={form.end_date} onChange={e => setForm({...form,end_date:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Episode Count</label>
-                  <input type="number" value={form.episode_count} onChange={e => setForm({...form,episode_count:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="e.g. 26" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Paid Drama Budget (PKR)</label>
-                  <input type="number" value={form.paid_drama_budget} onChange={e => setForm({...form,paid_drama_budget:e.target.value})}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="0" />
-                </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <input type="checkbox" id="yt" checked={form.youtube_upload} onChange={e => setForm({...form,youtube_upload:e.target.checked})} className="rounded" />
-                  <label htmlFor="yt" className="text-sm text-gray-700 flex items-center gap-1"><Play size={14} className="text-red-500" /> Uploaded to YouTube</label>
-                </div>
-              </div>
-
-              {/* Sponsor slots */}
-              <div className="border-t border-gray-100 pt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Sponsorship</p>
-                  <button type="button" onClick={() => setFormSponsors(p => [...p, emptyRow()])}
-                    className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-                    <Plus size={12} /> Add Slot
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formSponsors.map((row, idx) => (
-                    <SponsorRow key={idx} idx={idx} row={row} clients={clients}
-                      onChange={(i, k, v) => updateRow(setFormSponsors, i, k, v)}
-                      onRemove={i => setFormSponsors(p => p.filter((_, j) => j !== i))}
-                    />
-                  ))}
-                </div>
-              </div>
-
+              <ProgramFields form={form} setForm={setForm} />
+              <SponsorSection rows={formSponsors} setRows={setFormSponsors} />
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowModal(false); setForm(defaultForm()); setFormSponsors([emptyRow()]) }}
                   className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
                 <button type="submit" disabled={saving}
                   className="flex-1 bg-brand-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-brand-600 disabled:opacity-60">
                   {saving ? 'Saving...' : 'Add Program'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Program Modal ──────────────────────────────────────────────── */}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Edit Program</h2>
+              <button onClick={() => setEditModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <form onSubmit={saveEdit} className="px-6 py-4 space-y-4">
+              <ProgramFields form={editForm} setForm={setEditForm} />
+              <SponsorSection rows={editSponsors} setRows={setEditSponsors} />
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditModal(false)}
+                  className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving}
+                  className="flex-1 bg-brand-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-brand-600 disabled:opacity-60">
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
