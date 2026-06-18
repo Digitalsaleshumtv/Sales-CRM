@@ -8,7 +8,7 @@ import NotificationCenter from './NotificationCenter'
 
 const CRM_TABS = [
   { path: '/crm', label: 'Home' },
-  { path: '/crm/shows', label: 'Shows' },
+  { path: '/crm/shows', label: 'Programs' },
   { path: '/crm/clients', label: 'Clients' },
   { path: '/crm/deals', label: 'Deals' },
   { path: '/crm/pipeline', label: 'Pipeline' },
