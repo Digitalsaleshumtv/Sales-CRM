@@ -25,6 +25,7 @@ import Production from './pages/crm/Production'
 import Industries from './pages/crm/Industries'
 import Email from './pages/crm/Email'
 import Activity from './pages/crm/Activity'
+import CallReport from './pages/crm/CallReport'
 
 // Intel Pages
 import IntelDashboard from './pages/intel/IntelDashboard'
@@ -72,6 +73,7 @@ function AppLayout() {
           <Route path="/crm/industries" element={<Industries />} />
           <Route path="/crm/email" element={<Email />} />
           <Route path="/crm/activity" element={<Activity />} />
+          <Route path="/crm/call-report" element={<CallReport />} />
           <Route path="/intel" element={<IntelDashboard />} />
           <Route path="/intel/sites" element={<Sites />} />
           <Route path="/intel/results" element={<ScrapeResults />} />

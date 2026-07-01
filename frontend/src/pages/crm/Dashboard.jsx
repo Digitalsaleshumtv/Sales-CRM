@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, Briefcase, Users, Send, Lock, Calendar, AlertCircle, Eye } from 'lucide-react'
+import { TrendingUp, Briefcase, Users, Send, Lock, Calendar, AlertCircle, Phone, PhoneCall } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import useAppStore from '../../store/useAppStore'
 
@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({})
   const [recentDeals, setRecentDeals] = useState([])
   const [overdueFollowUps, setOverdueFollowUps] = useState([])
+  const [todaysCalls, setTodaysCalls] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { fetchDashboard() }, [])
@@ -73,12 +74,14 @@ export default function Dashboard() {
       { data: invoices },
       { data: followUps },
       { data: meetings },
+      { data: callsToday },
     ] = await Promise.all([
       supabase.from('deals').select('*'),
       supabase.from('clients').select('id, status'),
       supabase.from('invoices').select('*'),
       supabase.from('follow_ups').select('*, clients(name)'),
       supabase.from('meeting_logs').select('id').gte('meeting_date', monthStart),
+      supabase.from('call_reports').select('*').eq('report_date', now).order('created_at', { ascending: false }),
     ])
 
     const activeDeals = (deals || []).filter(d => !['Completed','Cancelled'].includes(d.status))
@@ -91,9 +94,12 @@ export default function Dashboard() {
     const dealsLocked = (deals || []).filter(d => d.locked_at && d.locked_at >= monthStart).length
     const overdueFollowUpsList = (followUps || []).filter(f => f.follow_up_date < now && f.status === 'Pending')
 
-    setStats({ mtdRevenue, activeDeals: activeDeals.length, activeClients: (clients || []).filter(c => c.status === 'active').length, proposalsSent, dealsLocked, meetingsHeld: meetings?.length || 0, overdueInvoicesCount: overdueInvoices.length, overdueInvoicesAmt: overdueAmt })
+    const calls = callsToday || []
+    const connectedCalls = calls.filter(c => c.call_status === 'Connected').length
+    setStats({ mtdRevenue, activeDeals: activeDeals.length, activeClients: (clients || []).filter(c => c.status === 'active').length, proposalsSent, dealsLocked, meetingsHeld: meetings?.length || 0, overdueInvoicesCount: overdueInvoices.length, overdueInvoicesAmt: overdueAmt, callsToday: calls.length, connectedToday: connectedCalls })
     setRecentDeals((deals || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5))
     setOverdueFollowUps(overdueFollowUpsList.slice(0, 5))
+    setTodaysCalls(calls.slice(0, 8))
     setLoading(false)
   }
 
@@ -118,7 +124,59 @@ export default function Dashboard() {
         <StatCard title="Deals Locked" value={stats.dealsLocked} sub="This month" icon={Lock} color="bg-indigo-500" href="/crm/deals" />
         <StatCard title="Meetings Held" value={stats.meetingsHeld} sub="This month" icon={Calendar} color="bg-teal-500" href="/crm/pipeline" />
         <StatCard title="Overdue Invoices" value={stats.overdueInvoicesCount} sub={stats.overdueInvoicesAmt ? fmt(stats.overdueInvoicesAmt) + ' outstanding' : 'All clear'} icon={AlertCircle} color={stats.overdueInvoicesCount > 0 ? 'bg-red-500' : 'bg-gray-400'} href="/crm/billing" />
-        <StatCard title="Brands Detected" value="—" sub="Set up Ad Intelligence" icon={Eye} color="bg-brand-500" href="/intel/brands" />
+        <StatCard title="Calls Today" value={stats.callsToday ?? 0} sub={`${stats.connectedToday ?? 0} connected`} icon={Phone} color="bg-rose-500" href="/crm/call-report" />
+      </div>
+
+      {/* Today's Call Activity */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <PhoneCall size={16} className="text-rose-500" />
+            <h2 className="font-semibold text-gray-900">Today's Call Activity</h2>
+            {todaysCalls.length > 0 && (
+              <span className="text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full font-medium">{todaysCalls.length} logged</span>
+            )}
+          </div>
+          <a href="/crm/call-report" className="text-xs text-brand-500 hover:underline">View all →</a>
+        </div>
+        {todaysCalls.length === 0 ? (
+          <p className="text-sm text-gray-400 p-5 text-center">No calls logged today — <a href="/crm/call-report" className="text-brand-500 hover:underline">log the first one</a></p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  {['Rep', 'Customer', 'Type', 'Status', 'Requirement', 'Follow-up', 'Deal (PKR)'].map(h => (
+                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {todaysCalls.map(c => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{c.rep_name}</td>
+                    <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{c.customer_name}</td>
+                    <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">{c.call_type}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        c.call_status === 'Connected' ? 'bg-green-100 text-green-700' :
+                        c.call_status === 'Not Connected' ? 'bg-red-100 text-red-600' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>{c.call_status}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-500 max-w-[200px]">
+                      <p className="truncate" title={c.customer_requirement}>{c.customer_requirement || '—'}</p>
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">{c.follow_up_date || '—'}</td>
+                    <td className="px-4 py-2.5 text-gray-700 font-medium whitespace-nowrap">
+                      {c.deal_amount ? Number(c.deal_amount).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

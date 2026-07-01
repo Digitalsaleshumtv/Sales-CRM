@@ -101,7 +101,7 @@ function SponsorRow({ idx, row, clients, onChange, onRemove }) {
 }
 
 function defaultForm() {
-  return { name: '', channel: 'HUM TV', category: 'Drama', schedule: '', status: 'Live', start_date: '', end_date: '', youtube_upload: false, episode_count: '', paid_drama_budget: '' }
+  return { name: '', channel: 'HUM TV', category: 'Drama', schedule: '', air_days: '', time_slot: '', status: 'Live', start_date: '', end_date: '', youtube_upload: false, episode_count: '', aired_episodes: '', remaining_episodes: '', paid_drama_budget: '', rate_presented_by: '', rate_powered_by: '', rate_associated_by: '' }
 }
 
 async function uploadLogo(showId, idx, file) {
@@ -127,67 +127,112 @@ async function resolveSponsors(showId, rows) {
   return out
 }
 
+const INP = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+
 // ── Shared Program form fields ─────────────────────────────────────────────
 function ProgramFields({ form, setForm }) {
+  const isDrama = form.category === 'Drama' || form.category === 'Web Series'
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="col-span-2">
-        <label className="block text-xs font-medium text-gray-700 mb-1">Program Name *</label>
-        <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="e.g. HUM Spelling Whizz 2026" />
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Program Name *</label>
+          <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+            className={INP} placeholder="e.g. HUM Spelling Whizz 2026" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
+          <select value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))} className={INP}>
+            {CHANNELS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+          <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} className={INP}>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+          <select value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))} className={INP}>
+            {STATUSES.map(s => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Air Days</label>
+          <input value={form.air_days} onChange={e => setForm(f => ({...f, air_days: e.target.value}))}
+            className={INP} placeholder="e.g. Monday & Tuesday" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Time Slot</label>
+          <input value={form.time_slot} onChange={e => setForm(f => ({...f, time_slot: e.target.value}))}
+            className={INP} placeholder="e.g. 8:00 PM" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Air Schedule (legacy)</label>
+          <input value={form.schedule} onChange={e => setForm(f => ({...f, schedule: e.target.value}))}
+            className={INP} placeholder="e.g. Mon–Tue 8:00 PM" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+          <input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))} className={INP} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+          <input type="date" value={form.end_date} onChange={e => setForm(f => ({...f, end_date: e.target.value}))} className={INP} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Total Episodes</label>
+          <input type="number" value={form.episode_count} onChange={e => setForm(f => ({...f, episode_count: e.target.value}))}
+            className={INP} placeholder="e.g. 80" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Paid Budget (PKR)</label>
+          <input type="number" value={form.paid_drama_budget} onChange={e => setForm(f => ({...f, paid_drama_budget: e.target.value}))}
+            className={INP} placeholder="0" />
+        </div>
+        <div className="col-span-2 flex items-center gap-2">
+          <input type="checkbox" id="yt_f" checked={form.youtube_upload} onChange={e => setForm(f => ({...f, youtube_upload: e.target.checked}))} className="rounded" />
+          <label htmlFor="yt_f" className="text-sm text-gray-700 flex items-center gap-1"><Play size={14} className="text-red-500" /> Uploaded to YouTube</label>
+        </div>
       </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Channel</label>
-        <select value={form.channel} onChange={e => setForm(f => ({...f, channel: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-          {CHANNELS.map(c => <option key={c}>{c}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-        <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-        <select value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-          {STATUSES.map(s => <option key={s}>{s}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Air Schedule</label>
-        <input value={form.schedule} onChange={e => setForm(f => ({...f, schedule: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="e.g. Mon–Tue 8:00 PM" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-        <input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-        <input type="date" value={form.end_date} onChange={e => setForm(f => ({...f, end_date: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Episode Count</label>
-        <input type="number" value={form.episode_count} onChange={e => setForm(f => ({...f, episode_count: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="e.g. 26" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Paid Budget (PKR)</label>
-        <input type="number" value={form.paid_drama_budget} onChange={e => setForm(f => ({...f, paid_drama_budget: e.target.value}))}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="0" />
-      </div>
-      <div className="col-span-2 flex items-center gap-2">
-        <input type="checkbox" id="yt_f" checked={form.youtube_upload} onChange={e => setForm(f => ({...f, youtube_upload: e.target.checked}))} className="rounded" />
-        <label htmlFor="yt_f" className="text-sm text-gray-700 flex items-center gap-1"><Play size={14} className="text-red-500" /> Uploaded to YouTube</label>
-      </div>
+
+      {isDrama && (
+        <div className="border border-dashed border-purple-200 rounded-xl p-4 bg-purple-50/40 space-y-3">
+          <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Episode Progress</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Aired Episodes</label>
+              <input type="number" value={form.aired_episodes} onChange={e => setForm(f => ({...f, aired_episodes: e.target.value}))}
+                className={INP} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Remaining / Tentative</label>
+              <input type="number" value={form.remaining_episodes} onChange={e => setForm(f => ({...f, remaining_episodes: e.target.value}))}
+                className={INP} placeholder="0" />
+            </div>
+          </div>
+
+          <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide pt-1">Sponsorship Rates (PKR per episode)</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Presented By</label>
+              <input type="number" value={form.rate_presented_by} onChange={e => setForm(f => ({...f, rate_presented_by: e.target.value}))}
+                className={INP} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Powered By</label>
+              <input type="number" value={form.rate_powered_by} onChange={e => setForm(f => ({...f, rate_powered_by: e.target.value}))}
+                className={INP} placeholder="0" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Associated By</label>
+              <input type="number" value={form.rate_associated_by} onChange={e => setForm(f => ({...f, rate_associated_by: e.target.value}))}
+                className={INP} placeholder="0" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -253,7 +298,7 @@ export default function Shows() {
 
   async function saveShow(e) {
     e.preventDefault(); setSaving(true)
-    const payload = { ...form, episode_count: form.episode_count ? Number(form.episode_count) : null, paid_drama_budget: form.paid_drama_budget ? Number(form.paid_drama_budget) : null, start_date: form.start_date || null, end_date: form.end_date || null }
+    const payload = { ...form, episode_count: form.episode_count ? Number(form.episode_count) : null, aired_episodes: form.aired_episodes ? Number(form.aired_episodes) : null, remaining_episodes: form.remaining_episodes ? Number(form.remaining_episodes) : null, paid_drama_budget: form.paid_drama_budget ? Number(form.paid_drama_budget) : null, rate_presented_by: form.rate_presented_by ? Number(form.rate_presented_by) : null, rate_powered_by: form.rate_powered_by ? Number(form.rate_powered_by) : null, rate_associated_by: form.rate_associated_by ? Number(form.rate_associated_by) : null, start_date: form.start_date || null, end_date: form.end_date || null }
     const { data, error } = await supabase.from('shows').insert([payload]).select().single()
     if (error) { alert(error.message); setSaving(false); return }
     const resolved = await resolveSponsors(data.id, formSponsors)
@@ -265,16 +310,23 @@ export default function Shows() {
   function openEdit(show) {
     setEditId(show.id)
     setEditForm({
-      name:              show.name             || '',
-      channel:           show.channel          || 'HUM TV',
-      category:          show.category         || 'Drama',
-      schedule:          show.schedule         || '',
-      status:            show.status           || 'Live',
-      start_date:        show.start_date       || '',
-      end_date:          show.end_date         || '',
-      youtube_upload:    show.youtube_upload   || false,
-      episode_count:     show.episode_count    ? String(show.episode_count)    : '',
-      paid_drama_budget: show.paid_drama_budget ? String(show.paid_drama_budget) : '',
+      name:                show.name                || '',
+      channel:             show.channel             || 'HUM TV',
+      category:            show.category            || 'Drama',
+      schedule:            show.schedule            || '',
+      air_days:            show.air_days            || '',
+      time_slot:           show.time_slot           || '',
+      status:              show.status              || 'Live',
+      start_date:          show.start_date          || '',
+      end_date:            show.end_date            || '',
+      youtube_upload:      show.youtube_upload      || false,
+      episode_count:       show.episode_count       ? String(show.episode_count)       : '',
+      aired_episodes:      show.aired_episodes      ? String(show.aired_episodes)      : '',
+      remaining_episodes:  show.remaining_episodes  ? String(show.remaining_episodes)  : '',
+      paid_drama_budget:   show.paid_drama_budget   ? String(show.paid_drama_budget)   : '',
+      rate_presented_by:   show.rate_presented_by   ? String(show.rate_presented_by)   : '',
+      rate_powered_by:     show.rate_powered_by     ? String(show.rate_powered_by)     : '',
+      rate_associated_by:  show.rate_associated_by  ? String(show.rate_associated_by)  : '',
     })
     const existing = (sponsorsByShow[show.id] || []).map(s => ({
       id: s.id, sponsor_label: s.sponsor_label, client_id: s.client_id || '', sponsor_name: s.sponsor_name || '', logo_url: s.logo_url || '', _logoFile: null, _tmpUrl: '',
@@ -285,7 +337,7 @@ export default function Shows() {
 
   async function saveEdit(e) {
     e.preventDefault(); setSaving(true)
-    const payload = { ...editForm, episode_count: editForm.episode_count ? Number(editForm.episode_count) : null, paid_drama_budget: editForm.paid_drama_budget ? Number(editForm.paid_drama_budget) : null, start_date: editForm.start_date || null, end_date: editForm.end_date || null }
+    const payload = { ...editForm, episode_count: editForm.episode_count ? Number(editForm.episode_count) : null, aired_episodes: editForm.aired_episodes ? Number(editForm.aired_episodes) : null, remaining_episodes: editForm.remaining_episodes ? Number(editForm.remaining_episodes) : null, paid_drama_budget: editForm.paid_drama_budget ? Number(editForm.paid_drama_budget) : null, rate_presented_by: editForm.rate_presented_by ? Number(editForm.rate_presented_by) : null, rate_powered_by: editForm.rate_powered_by ? Number(editForm.rate_powered_by) : null, rate_associated_by: editForm.rate_associated_by ? Number(editForm.rate_associated_by) : null, start_date: editForm.start_date || null, end_date: editForm.end_date || null }
     const { error } = await supabase.from('shows').update(payload).eq('id', editId)
     if (error) { alert(error.message); setSaving(false); return }
     await supabase.from('show_sponsors').delete().eq('show_id', editId)
@@ -440,25 +492,69 @@ export default function Shows() {
                   )}
                 </div>
 
+                {/* Episode progress (dramas) */}
+                {(show.aired_episodes != null || show.remaining_episodes != null) && (() => {
+                  const aired = show.aired_episodes || 0
+                  const remaining = show.remaining_episodes || 0
+                  const total = aired + remaining
+                  const pct = total > 0 ? Math.round((aired / total) * 100) : 0
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-gray-500">
+                        <span>{aired} aired · {remaining} remaining</span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Sponsor slots */}
                 <div className="space-y-1.5">
                   {sponsors.length === 0 ? (
                     <p className="text-[11px] text-orange-400 italic">No sponsors — click ✏️ to add</p>
-                  ) : sponsors.map((s, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs gap-2">
-                      <span className="text-gray-400 text-[11px] w-32 flex-shrink-0 truncate">{s.sponsor_label}</span>
-                      <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0">
-                        {s.logo_url && <img src={s.logo_url} alt="" className="h-5 w-auto object-contain max-w-[44px] rounded" />}
-                        <span className="font-medium text-gray-800 truncate">
-                          {s.client?.name || s.sponsor_name || <span className="text-orange-400 font-normal">Open</span>}
-                        </span>
+                  ) : sponsors.map((s, i) => {
+                    const taken = s.client?.name || s.sponsor_name
+                    const rate = s.sponsor_label?.toLowerCase().includes('presented') ? show.rate_presented_by
+                      : s.sponsor_label?.toLowerCase().includes('powered') ? show.rate_powered_by
+                      : s.sponsor_label?.toLowerCase().includes('associated') ? show.rate_associated_by
+                      : null
+                    return (
+                      <div key={i} className="flex items-center justify-between text-xs gap-2">
+                        <span className="text-gray-400 text-[11px] w-28 flex-shrink-0 truncate">{s.sponsor_label}</span>
+                        <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0">
+                          {rate && <span className="text-[10px] text-gray-400">₨{Number(rate).toLocaleString()}</span>}
+                          {s.logo_url && <img src={s.logo_url} alt="" className="h-5 w-auto object-contain max-w-[44px] rounded" />}
+                          {taken
+                            ? <span className="font-medium text-gray-800 truncate">{taken}</span>
+                            : <span className="text-[11px] px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Available</span>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
+
+                {/* Rates summary if no sponsor slots defined but rates exist */}
+                {sponsors.length === 0 && (show.rate_presented_by || show.rate_powered_by || show.rate_associated_by) && (
+                  <div className="grid grid-cols-3 gap-1.5 bg-gray-50 rounded-lg p-2">
+                    {[['Presented', show.rate_presented_by], ['Powered', show.rate_powered_by], ['Associated', show.rate_associated_by]].map(([label, rate]) => (
+                      rate ? (
+                        <div key={label} className="text-center">
+                          <p className="text-[9px] text-gray-400 uppercase">{label}</p>
+                          <p className="text-[11px] font-semibold text-gray-700">₨{Number(rate).toLocaleString()}</p>
+                          <p className="text-[9px] text-green-600 font-medium">Available</p>
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-50 text-xs">
                   <div className="flex items-center gap-2 text-gray-400">
-                    {show.episode_count && <span>{show.episode_count} eps</span>}
+                    {show.air_days && <span>{show.air_days}{show.time_slot ? ` · ${show.time_slot}` : ''}</span>}
+                    {!show.air_days && show.episode_count && <span>{show.episode_count} eps</span>}
                     {show.youtube_upload && <span className="flex items-center gap-1 text-red-500"><Play size={11} /> YouTube</span>}
                   </div>
                   {linked ? (

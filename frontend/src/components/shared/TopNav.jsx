@@ -23,6 +23,7 @@ const CRM_TABS = [
   { path: '/crm/industries', label: 'Industries' },
   { path: '/crm/email', label: 'Email' },
   { path: '/crm/activity', label: 'Activity' },
+  { path: '/crm/call-report', label: 'Call Report' },
 ]
 
 const INTEL_TABS = [

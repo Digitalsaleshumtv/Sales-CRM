@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Award, TrendingUp, Users, Target, X, ChevronRight } from 'lucide-react'
+import { Award, TrendingUp, Users, Target, X, ChevronRight, Phone, PhoneCall, Clock, CalendarCheck, CheckCircle2, AlertCircle } from 'lucide-react'
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { supabase } from '../../lib/supabase'
 
@@ -75,8 +75,19 @@ const STATUS_COLORS = {
   'Prospecting':     'bg-slate-100 text-slate-600',
 }
 
+const LATE_THRESHOLD = '09:15' // check-in after this = Late
+
+function normName(s) { return String(s || '').trim().toLowerCase() }
+function matchRep(repName, teamName) {
+  const r = normName(repName), t = normName(teamName)
+  return r === t || r.includes(t.split(' ')[0]) || t.includes(r.split(' ')[0])
+}
+
 export default function KPIs() {
   const [allDeals, setAllDeals]       = useState([])
+  const [callReports, setCallReports] = useState([])
+  const [attendance, setAttendance]   = useState([])
+  const [checkingIn, setCheckingIn]   = useState(null)
   const [loading, setLoading]         = useState(true)
   const [selectedPerson, setSelected] = useState(null)
   const now      = new Date()
@@ -85,15 +96,32 @@ export default function KPIs() {
   const { start: fyStart, label: fyLabel } = fyRange()
   const last6    = getLast6Months()
 
-  useEffect(() => { fetchDeals() }, [])
+  useEffect(() => { fetchAll() }, [])
 
-  async function fetchDeals() {
+  async function fetchAll() {
     setLoading(true)
-    const { data } = await supabase
-      .from('deals')
-      .select('id, name, value_net, status, assigned_to, created_at, start_date, end_date, channel, clients(name)')
-    setAllDeals(data || [])
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const [{ data: deals }, { data: calls }, { data: att }] = await Promise.all([
+      supabase.from('deals').select('id, name, value_net, status, assigned_to, created_at, start_date, end_date, channel, clients(name)'),
+      supabase.from('call_reports').select('*').gte('report_date', monthStart),
+      supabase.from('attendance').select('*').gte('date', monthStart),
+    ])
+    setAllDeals(deals || [])
+    setCallReports(calls || [])
+    setAttendance(att || [])
     setLoading(false)
+  }
+
+  async function handleCheckIn(teamName) {
+    setCheckingIn(teamName)
+    const today = now.toISOString().split('T')[0]
+    const timeNow = now.toTimeString().slice(0, 5)
+    const status = timeNow > LATE_THRESHOLD ? 'Late' : 'Present'
+    await supabase.from('attendance').upsert({ rep_name: teamName, date: today, check_in_time: timeNow, status }, { onConflict: 'rep_name,date' })
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const { data } = await supabase.from('attendance').select('*').gte('date', monthStart)
+    setAttendance(data || [])
+    setCheckingIn(null)
   }
 
   function committedDeals(name) {
@@ -122,11 +150,38 @@ export default function KPIs() {
     }))
   }
 
+  function repCalls(name) { return callReports.filter(c => matchRep(c.rep_name, name)) }
+  function repAttendance(name) { return attendance.filter(a => matchRep(a.rep_name, name)) }
+  function todayAttendance(name) {
+    const today = now.toISOString().split('T')[0]
+    return attendance.find(a => matchRep(a.rep_name, name) && a.date === today)
+  }
+
   const teamStats = TEAM.map(({ name, title }) => {
-    const monthly = monthlyRev(name)
-    const ytd     = ytdRev(name)
-    return { name, title, monthly, ytd, monthlyPct: pct(monthly, MONTHLY_TARGET), ytdPct: pct(ytd, YEARLY_TARGET), spark: sparkData(name) }
+    const monthly  = monthlyRev(name)
+    const ytd      = ytdRev(name)
+    const calls    = repCalls(name)
+    const att      = repAttendance(name)
+    const connected = calls.filter(c => c.call_status === 'Connected').length
+    const daysIn   = att.filter(a => a.status !== 'Absent').length
+    const lateDays = att.filter(a => a.status === 'Late').length
+    const avgCheckIn = att.filter(a => a.check_in_time).length > 0
+      ? att.filter(a => a.check_in_time).map(a => a.check_in_time).sort()[Math.floor(att.length / 2)]
+      : null
+    return { name, title, monthly, ytd, monthlyPct: pct(monthly, MONTHLY_TARGET), ytdPct: pct(ytd, YEARLY_TARGET), spark: sparkData(name), calls: calls.length, connected, connectionRate: calls.length ? Math.round((connected / calls.length) * 100) : 0, daysIn, lateDays, avgCheckIn, todayIn: !!todayAttendance(name) }
   })
+
+  // Team-level call stats
+  const teamCalls      = callReports.length
+  const teamConnected  = callReports.filter(c => c.call_status === 'Connected').length
+  const teamConnRate   = teamCalls ? Math.round((teamConnected / teamCalls) * 100) : 0
+  const teamFollowUps  = callReports.filter(c => c.follow_up_date).length
+  const teamDealValue  = callReports.reduce((s, c) => s + (parseFloat(c.deal_amount) || 0), 0)
+
+  // Team attendance stats
+  const today = now.toISOString().split('T')[0]
+  const todayPresent = attendance.filter(a => a.date === today && a.status !== 'Absent').length
+  const monthDaysWorked = [...new Set(attendance.map(a => a.date))].length
 
   const teamMonthly        = teamStats.reduce((s, m) => s + m.monthly, 0)
   const teamYtd            = teamStats.reduce((s, m) => s + m.ytd, 0)
@@ -255,11 +310,41 @@ export default function KPIs() {
               </div>
 
               {/* 6-month sparkline */}
-              <div>
+              <div className="mb-3">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Last 6 months</p>
                 <SparkBar data={m.spark} target={MONTHLY_TARGET} />
                 <div className="flex justify-between mt-1">
                   {m.spark.map(d => <span key={d.label} className="text-[9px] text-gray-300 flex-1 text-center">{d.label}</span>)}
+                </div>
+              </div>
+
+              {/* Call + Attendance mini-row */}
+              <div className="border-t border-gray-50 pt-3 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">{m.calls}</p>
+                  <p className="text-[9px] text-gray-400 uppercase">Calls</p>
+                  <p className="text-[9px] text-green-600">{m.connectionRate}% conn.</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-800">{m.daysIn}</p>
+                  <p className="text-[9px] text-gray-400 uppercase">Days In</p>
+                  {m.lateDays > 0 && <p className="text-[9px] text-orange-500">{m.lateDays} late</p>}
+                </div>
+                <div>
+                  {m.todayIn ? (
+                    <div className="flex flex-col items-center">
+                      <CheckCircle2 size={14} className="text-green-500" />
+                      <p className="text-[9px] text-green-600">Checked in</p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleCheckIn(m.name) }}
+                      disabled={checkingIn === m.name}
+                      className="text-[9px] bg-brand-500 text-white px-2 py-1 rounded-lg hover:bg-brand-600 disabled:opacity-50 w-full"
+                    >
+                      {checkingIn === m.name ? '...' : 'Check In'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -300,6 +385,126 @@ export default function KPIs() {
               <span className="flex items-center gap-1.5 text-xs text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-gray-200 inline-block" />Remaining gap</span>
               <span className="ml-auto text-xs font-semibold text-gray-600">Target: {fmt(teamYearlyTarget)}</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Call Activity KPIs ─────────────────────────────────────────────── */}
+      {!loading && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <PhoneCall size={16} className="text-rose-500" />
+            <h2 className="font-semibold text-gray-800">Call Activity KPIs — This Month</h2>
+            <a href="/crm/call-report" className="ml-auto text-xs text-brand-500 hover:underline">View full log →</a>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Calls', value: teamCalls, sub: 'logged this month', icon: Phone, color: 'text-rose-500 bg-rose-50' },
+              { label: 'Connected', value: `${teamConnected} (${teamConnRate}%)`, sub: 'connection rate', icon: PhoneCall, color: 'text-green-600 bg-green-50' },
+              { label: 'Follow-ups Set', value: teamFollowUps, sub: 'from call logs', icon: CalendarCheck, color: 'text-blue-600 bg-blue-50' },
+              { label: 'Pipeline from Calls', value: teamDealValue > 0 ? fmt(teamDealValue) : '—', sub: 'deal value logged', icon: TrendingUp, color: 'text-purple-600 bg-purple-50' },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl border border-gray-100 p-4 flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${s.color}`}>
+                  <s.icon size={16} />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-gray-900">{s.value}</p>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">{s.label}</p>
+                  <p className="text-[10px] text-gray-400">{s.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Per-rep call table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-100">
+                <tr>
+                  {['Rep', 'Calls', 'Connected', 'Conn. Rate', 'Follow-ups', 'Deal Value', 'Win Rate*'].map(h => (
+                    <th key={h} className="pb-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pr-4">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {teamStats.map(m => {
+                  const calls = repCalls(m.name)
+                  const connected = calls.filter(c => c.call_status === 'Connected').length
+                  const followUps = calls.filter(c => c.follow_up_date).length
+                  const dealVal = calls.reduce((s, c) => s + (parseFloat(c.deal_amount) || 0), 0)
+                  const winRate = calls.length ? Math.round((calls.filter(c => c.call_status === 'Connected').length / calls.length) * 100) : 0
+                  return (
+                    <tr key={m.name} className="hover:bg-gray-50">
+                      <td className="py-2 pr-4 font-medium text-gray-900">{m.name.split(' ')[0]}</td>
+                      <td className="py-2 pr-4 text-gray-700">{calls.length || '—'}</td>
+                      <td className="py-2 pr-4 text-green-600 font-medium">{connected || '—'}</td>
+                      <td className="py-2 pr-4">
+                        {calls.length > 0 ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${winRate >= 70 ? 'bg-green-100 text-green-700' : winRate >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'}`}>
+                            {winRate}%
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-600">{followUps || '—'}</td>
+                      <td className="py-2 pr-4 text-gray-700">{dealVal > 0 ? fmt(dealVal) : '—'}</td>
+                      <td className="py-2 text-gray-400 text-xs">*based on connected calls</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Attendance KPIs ─────────────────────────────────────────────────── */}
+      {!loading && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-indigo-500" />
+            <h2 className="font-semibold text-gray-800">Attendance — This Month</h2>
+            <span className="ml-2 text-xs text-gray-400">Late = check-in after 9:15 AM · Click "Check In" on each card above</span>
+            <div className="ml-auto flex gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" /> Present today: <strong>{todayPresent}/{TEAM.length}</strong></span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block" /> Working days this month: <strong>{monthDaysWorked}</strong></span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-100">
+                <tr>
+                  {['Rep', 'Days Present', 'Days Late', 'Avg Check-in', 'Today'].map(h => (
+                    <th key={h} className="pb-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pr-6">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {teamStats.map(m => (
+                  <tr key={m.name} className="hover:bg-gray-50">
+                    <td className="py-2.5 pr-6 font-medium text-gray-900">{m.name.split(' ')[0]}</td>
+                    <td className="py-2.5 pr-6">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-800">{m.daysIn}</span>
+                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                          <div className="bg-indigo-400 h-1.5 rounded-full" style={{ width: `${Math.min((m.daysIn / Math.max(monthDaysWorked, 1)) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-2.5 pr-6">
+                      {m.lateDays > 0
+                        ? <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full font-medium">{m.lateDays} late</span>
+                        : <span className="text-xs text-green-600">On time ✓</span>}
+                    </td>
+                    <td className="py-2.5 pr-6 text-gray-600 font-mono text-xs">{m.avgCheckIn || '—'}</td>
+                    <td className="py-2.5">
+                      {m.todayIn
+                        ? <span className="flex items-center gap-1 text-green-600 text-xs font-medium"><CheckCircle2 size={13} /> Present</span>
+                        : <span className="flex items-center gap-1 text-gray-400 text-xs"><AlertCircle size={13} /> Not checked in</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -398,6 +603,42 @@ export default function KPIs() {
 
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+                {/* Call Activity Summary */}
+                {(() => {
+                  const calls = repCalls(selectedPerson)
+                  const connected = calls.filter(c => c.call_status === 'Connected').length
+                  const attRec = repAttendance(selectedPerson)
+                  if (calls.length === 0 && attRec.length === 0) return null
+                  return (
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-semibold text-rose-700 flex items-center gap-2"><PhoneCall size={14} /> This Month Activity</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Calls', value: calls.length },
+                          { label: 'Connected', value: `${connected} (${calls.length ? Math.round((connected/calls.length)*100) : 0}%)` },
+                          { label: 'Days In', value: attRec.filter(a=>a.status!=='Absent').length },
+                        ].map(s => (
+                          <div key={s.label} className="bg-white rounded-lg p-2 text-center">
+                            <p className="text-base font-bold text-gray-900">{s.value}</p>
+                            <p className="text-[10px] text-gray-500">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {calls.length > 0 && (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {calls.slice(0, 10).map(c => (
+                            <div key={c.id} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-1.5">
+                              <span className="font-medium text-gray-700">{c.customer_name}</span>
+                              <span className="text-gray-400">{c.report_date}</span>
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${c.call_status === 'Connected' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{c.call_status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Committed deals */}
                 <div>

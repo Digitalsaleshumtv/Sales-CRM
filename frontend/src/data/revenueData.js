@@ -15,7 +15,7 @@ export const TARGET_MONTHLY = Math.round(TARGET_TOTAL / 12)
 export const FY_META = {
   'FY2023-24': { label: 'FY 2023-24', range: 'Jul 2023 – Jun 2024', total: 156774312, status: 'Complete · 12 months' },
   'FY2024-25': { label: 'FY 2024-25', range: 'Jul 2024 – Jun 2025', total: 245320227, status: 'Complete · 12 months · Record year' },
-  'FY2025-26': { label: 'FY 2025-26', range: 'Jul 2025 – Jun 2026', total: 200671950, status: 'Ongoing · Jul–Mar full actuals, Apr–May W&S only' },
+  'FY2025-26': { label: 'FY 2025-26', range: 'Jul 2025 – Jun 2026', total: 224883950, status: 'Complete · 12 months · Jul 2025 – Jun 2026' },
   'FY2026-27': { label: 'FY 2026-27', range: 'Jul 2026 – Jun 2027', total: 0, status: `Target year · PKR 500M goal (≈PKR ${(TARGET_MONTHLY / 1000000).toFixed(1)}M/month)` },
 }
 
@@ -59,9 +59,9 @@ export const MONTHS = [
   { key: '2026-01', fy: 'FY2025-26', label: 'Jan 2026', total: 6360000,  status: 'complete' },
   { key: '2026-02', fy: 'FY2025-26', label: 'Feb 2026', total: 16310000, status: 'complete' },
   { key: '2026-03', fy: 'FY2025-26', label: 'Mar 2026', total: 21390000, status: 'complete' },
-  { key: '2026-04', fy: 'FY2025-26', label: 'Apr 2026', total: 366000,   status: 'partial' },
-  { key: '2026-05', fy: 'FY2025-26', label: 'May 2026', total: 795950,   status: 'partial' },
-  { key: '2026-06', fy: 'FY2025-26', label: 'Jun 2026', total: 0,        status: 'pending' },
+  { key: '2026-04', fy: 'FY2025-26', label: 'Apr 2026', total: 5606000,   status: 'complete', cat: { drama: 5240000, events: 0, exclusive: 0, live: 0, web_social: 366000,  glam: 0 } },
+  { key: '2026-05', fy: 'FY2025-26', label: 'May 2026', total: 11289950,  status: 'complete', cat: { drama: 10494000, events: 0, exclusive: 0, live: 0, web_social: 795950, glam: 0 } },
+  { key: '2026-06', fy: 'FY2025-26', label: 'Jun 2026', total: 8478000,   status: 'complete', cat: { drama: 7718000, events: 0, exclusive: 0, live: 0, web_social: 760000,  glam: 0 } },
   // ── FY2026-27 (target year — PKR 500M goal split evenly; actuals fill in from live entries) ──
   { key: '2026-07', fy: 'FY2026-27', label: 'Jul 2026', total: 0, status: 'target', target: TARGET_MONTHLY },
   { key: '2026-08', fy: 'FY2026-27', label: 'Aug 2026', total: 0, status: 'target', target: TARGET_MONTHLY },
@@ -295,6 +295,36 @@ const RAW_CAMPAIGNS_FY26 = [
   ['2026-05', 'DGS', 'Marka e Haq', 'HUM News Website', 'MOIB', 145950],
   ['2026-05', 'DGS', 'Marka e Haq', 'HUM News Socials', 'MOIB', 250000],
   ['2026-05', 'Walee', 'PM Visit to China', 'Hum News Socials', 'MOIB', 400000],
+  // ── June 2026 W&S ──
+  ['2026-06', 'Walee', 'MOIB Budget', 'Hum News', 'MOIB', 400000],
+  ['2026-06', 'DGS', 'BISP', 'Hum News', 'BISP', 200000],
+  ['2026-06', 'Linkers', 'BISP Digital Wallet', 'Hum News', 'BISP', 160000],
+  // ── June 2026 Drama (recorded separately — not in W&S file) ──
+  ['2026-06', 'Time & Space', 'Presented by Khursheed fan (Zanjeerain)', 'HUM TV', 'Khursheed Fans', 1520000],
+  ['2026-06', 'Media Network', 'Powered by Master Paint (Zanjeerain)', 'HUM TV', 'Master Paint', 1224000],
+  ['2026-06', 'Vince', 'Associated by Vince (Zanjeerain)', 'HUM TV', 'Vince', 1200000],
+  ['2026-06', 'Brighto Paints', 'Presented by Brighto Paints (Leader)', 'HUM TV', 'Brighto Paints', 760000],
+  ['2026-06', 'WPP', 'Presented by Sunsilk (Winter Love)', 'HUM TV', 'Sunsilk', 1360000],
+  ['2026-06', 'Skinwhite', 'Associated by Skinwhite (Winter Love)', 'HUM TV', 'Skinwhite', 1160000],
+  ['2026-06', 'Digital Creation', 'TikTok Reel (Black Beauty / Zanjeerain)', 'HUM TV', 'Black Beauty', 38000],
+  ['2026-06', 'Digital Creation', 'TikTok Reel (SIA Beauty Cream / Zanjeerain)', 'HUM TV', 'SIA Beauty Cream', 456000],
+  // ── April 2026 Drama (recorded separately) ──
+  ['2026-04', 'Time & Space', 'Presented by Khursheed fan (Zanjeerain)', 'HUM TV', 'Khursheed Fans', 380000],
+  ['2026-04', 'Media Network', 'Powered by Master Paint (Muamma)', 'HUM TV', 'Master Paint', 1224000],
+  ['2026-04', 'Media Network', 'Powered by Master Paint (Zanjeerain)', 'HUM TV', 'Master Paint', 306000],
+  ['2026-04', 'Brighto Paints', 'Presented by Brighto Paints (Leader)', 'HUM TV', 'Brighto Paints', 1140000],
+  ['2026-04', 'Vince', 'Associated by Vince (Zanjeerain)', 'HUM TV', 'Vince', 300000],
+  ['2026-04', 'GroupM', 'Presented by Sunsilk (Winter Love)', 'HUM TV', 'Sunsilk', 1020000],
+  ['2026-04', 'Skinwhite', 'Associated by Skinwhite (Winter Love)', 'HUM TV', 'Skinwhite', 870000],
+  // ── May 2026 Drama (recorded separately) ──
+  ['2026-05', 'Time & Space', 'Presented by Khursheed fan (Zanjeerain)', 'HUM TV', 'Khursheed Fans', 1520000],
+  ['2026-05', 'Media Network', 'Powered by Master Paint (Zanjeerain)', 'HUM TV', 'Master Paint', 1224000],
+  ['2026-05', 'Brighto Paints', 'Presented by Brighto Paints (Leader)', 'HUM TV', 'Brighto Paints', 950000],
+  ['2026-05', 'Vince', 'Associated by Vince (Zanjeerain)', 'HUM TV', 'Vince', 1200000],
+  ['2026-05', 'WPP', 'Presented by Sunsilk (Winter Love)', 'HUM TV', 'Sunsilk', 1700000],
+  ['2026-05', 'WPP', 'Knorr Presents Meat Menu', 'HUM TV', 'Knorr', 1700000],
+  ['2026-05', 'WPP', 'Knorr Presents Khana Kahani', 'HUM TV', 'Knorr', 750000],
+  ['2026-05', 'Skinwhite', 'Associated by Skinwhite (Winter Love)', 'HUM TV', 'Skinwhite', 1450000],
 ]
 
 export const CAMPAIGNS_FY26 = RAW_CAMPAIGNS_FY26.map(([month, agency, campaign, portal, client, amount]) => ({
