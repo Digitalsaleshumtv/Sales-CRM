@@ -1,24 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Bell, CheckCircle, AlertCircle, Info, DollarSign, Users, FileText, Calendar, TrendingUp, Trash2 } from 'lucide-react'
+import { Bell, Info, DollarSign, Users, FileText, Calendar, TrendingUp, Phone } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const TYPE_ICONS = {
-  deal: <DollarSign size={14}/>,
-  client: <Users size={14}/>,
+  deal:    <DollarSign size={14}/>,
+  client:  <Users size={14}/>,
   invoice: <FileText size={14}/>,
   meeting: <Calendar size={14}/>,
-  followup: <Bell size={14}/>,
-  kpi: <TrendingUp size={14}/>,
-  system: <Info size={14}/>,
+  followup:<Bell size={14}/>,
+  call:    <Phone size={14}/>,
+  kpi:     <TrendingUp size={14}/>,
+  system:  <Info size={14}/>,
 }
 const TYPE_COLORS = {
-  deal:'bg-green-100 text-green-700',
-  client:'bg-blue-100 text-blue-700',
-  invoice:'bg-orange-100 text-orange-700',
-  meeting:'bg-purple-100 text-purple-700',
+  deal:    'bg-green-100 text-green-700',
+  client:  'bg-blue-100 text-blue-700',
+  invoice: 'bg-orange-100 text-orange-700',
+  meeting: 'bg-purple-100 text-purple-700',
   followup:'bg-yellow-100 text-yellow-700',
-  kpi:'bg-pink-100 text-pink-700',
-  system:'bg-gray-100 text-gray-600',
+  call:    'bg-rose-100 text-rose-600',
+  kpi:     'bg-pink-100 text-pink-700',
+  system:  'bg-gray-100 text-gray-600',
 }
 
 function timeAgo(ts){
@@ -41,12 +43,13 @@ export default function Activity() {
   async function fetchAll(){
     setLoading(true)
     // Pull from multiple tables and merge into a timeline
-    const [deals, clients, invoices, meetings, followups] = await Promise.all([
+    const [deals, clients, invoices, meetings, followups, calls] = await Promise.all([
       supabase.from('deals').select('id,name,status,created_at,amount_pkr').order('created_at',{ascending:false}).limit(20),
       supabase.from('clients').select('id,name,created_at,type').order('created_at',{ascending:false}).limit(20),
       supabase.from('invoices').select('id,invoice_number,status,created_at,total_pkr').order('created_at',{ascending:false}).limit(20),
       supabase.from('meeting_logs').select('id,subject,meeting_date,attendees').order('meeting_date',{ascending:false}).limit(20),
       supabase.from('follow_ups').select('id,note,due_date,status,created_at').order('created_at',{ascending:false}).limit(20),
+      supabase.from('call_reports').select('id,rep_name,customer_name,call_type,call_status,deal_amount,report_date,created_at').order('created_at',{ascending:false}).limit(30),
     ])
 
     const all = [
@@ -55,13 +58,14 @@ export default function Activity() {
       ...(invoices.data||[]).map(i=>({id:`inv-${i.id}`,type:'invoice',title:`Invoice ${i.invoice_number||'#'} — ${i.status}`,subtitle:`₨${Number(i.total_pkr||0).toLocaleString()}`,ts:i.created_at})),
       ...(meetings.data||[]).map(m=>({id:`mtg-${m.id}`,type:'meeting',title:`Meeting: ${m.subject||'—'}`,subtitle:m.attendees||'',ts:m.meeting_date})),
       ...(followups.data||[]).map(f=>({id:`fu-${f.id}`,type:'followup',title:`Follow-up: ${f.note?.slice(0,50)||'—'}`,subtitle:`Due: ${f.due_date} · ${f.status}`,ts:f.created_at})),
+      ...(calls.data||[]).map(c=>({id:`call-${c.id}`,type:'call',title:`${c.rep_name} called ${c.customer_name}`,subtitle:`${c.call_type} · ${c.call_status}${c.deal_amount?` · ₨${Number(c.deal_amount).toLocaleString()}`:''}`,ts:c.created_at})),
     ].sort((a,b)=>new Date(b.ts)-new Date(a.ts))
 
     setEvents(all)
     setLoading(false)
   }
 
-  const types = ['all','deal','client','invoice','meeting','followup']
+  const types = ['all','call','deal','client','invoice','meeting','followup']
   const filtered = filter==='all'?events:events.filter(e=>e.type===filter)
 
   // Group by date
