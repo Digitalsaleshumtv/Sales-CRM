@@ -1159,10 +1159,16 @@ export default function Revenue() {
         const SOCIAL_PORTALS = ['YouTube', 'FB Post', 'FB Reel', 'Insta Post', 'Insta Reel']
         const SOCIAL_COLORS  = { 'YouTube': '#ff0000', 'FB Post': '#1877f2', 'FB Reel': '#0c63d4', 'Insta Post': '#e1306c', 'Insta Reel': '#c13584' }
 
-        // Only live entries from revenue_entries (Jul 2025+) — canonical portal names only
-        const allRows = entries
-          .filter(e => e.month >= from && e.month <= to && isSocial(e.portal))
+        const SOCIAL_SET = new Set(['FB Post','FB Reel','Insta Post','Insta Reel','YouTube'])
+        // Historical W&S entries (Jul 2025+) with explicit platform tags from Excel
+        const historicalRows = CAMPAIGNS_FY26
+          .filter(c => c.platform && SOCIAL_SET.has(c.platform) && c.month >= '2025-07' && c.month >= from && c.month <= to)
+          .map(c => ({ month: c.month, portal: c.platform, amount: Number(c.amount || 0), impressions: 0, agency: c.agency || '', brand: c.brand || '', campaign: c.campaign || '', ro_number: null }))
+        // Live entries from Supabase with canonical social portals
+        const liveRows = entries
+          .filter(e => e.month >= '2025-07' && e.month >= from && e.month <= to && isSocial(e.portal))
           .map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number }))
+        const allRows = [...historicalRows, ...liveRows]
 
         const totalSocial = allRows.reduce((a, c) => a + c.amount, 0)
         const totalImpressions = allRows.reduce((a, c) => a + (c.impressions || 0), 0)
