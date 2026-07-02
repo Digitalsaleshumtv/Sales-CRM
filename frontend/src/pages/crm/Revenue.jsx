@@ -7,10 +7,10 @@ import { Download, X, ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight, Pres
 import { supabase } from '../../lib/supabase'
 import {
   MONTHS, FY_LIST, FY_TARGET, FY_META, CAT_META, BUSINESS_TYPE_PERIODS, CHANNELS_BY_FY,
-  CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR,
+  CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR, classifyPortal,
 } from '../../data/revenueData'
 
-const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns']
+const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns', 'Website']
 const FY_COLORS = { 'FY2023-24': '#64748b', 'FY2024-25': '#c0392b', 'FY2025-26': '#d4a017', 'FY2026-27': '#0e7490' }
 const MONTH_ORDER = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
 const CHART_MODES = ['Bars', 'Line', 'Cumulative', 'Pie', 'Donut']
@@ -42,6 +42,7 @@ export default function Revenue() {
   const [chartMode, setChartMode] = useState('Bars')
   const [showPpt, setShowPpt] = useState(false)
   const [showEntry, setShowEntry] = useState(false)
+  const [drillCat, setDrillCat] = useState(null) // selected category id for Business Type drill
 
   // ── Live entries from Supabase (auto-updates via realtime) ──
   const [entries, setEntries] = useState([])
@@ -657,16 +658,49 @@ export default function Revenue() {
         const catTotals = CAT_META.map(c => ({ ...c, value: fy25.reduce((a, m) => a + (m.cat?.[c.id] || 0), 0) }))
         const fy25Total = fy25.reduce((a, m) => a + m.total, 0)
         const allTypes = [...new Set(BUSINESS_TYPE_PERIODS.flatMap(p => p.types.map(t => t.name)))]
+
+        // Drill panel: campaigns for selected category
+        const drillInfo = drillCat ? CAT_META.find(c => c.id === drillCat) : null
+        const drillMonthRows = drillCat
+          ? MONTHS.filter(m => m.cat?.[drillCat] > 0).map(m => ({ label: m.label, key: m.key, fy: m.fy, value: m.cat[drillCat] }))
+          : []
+        // Campaign-level detail (FY25-26 only, from CAMPAIGNS_FY26)
+        const drillCampaignRows = drillCat === 'web_social'
+          ? CAMPAIGNS_FY26.filter(c => ['website', 'social', 'other'].includes(classifyPortal(c.portal)))
+          : drillCat === 'drama'
+          ? CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'drama')
+          : drillCat === 'glam'
+          ? CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'glam')
+          : []
+        const websiteCampaigns = drillCat === 'web_social' ? drillCampaignRows.filter(c => classifyPortal(c.portal) === 'website') : []
+        const socialCampaigns  = drillCat === 'web_social' ? drillCampaignRows.filter(c => classifyPortal(c.portal) === 'social') : []
+
         return (
           <div className="space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                 <h2 className="font-semibold text-gray-900 mb-1">FY2024-25 Mix by Business Type</h2>
-                <p className="text-xs text-gray-400 mb-3">Full year · PKR 245.3M (monthly split available for this year)</p>
+                <p className="text-xs text-gray-400 mb-1">Full year · PKR 245.3M · <span className="text-brand-500">Click a slice to drill in</span></p>
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
-                    <Pie data={catTotals} cx="50%" cy="50%" outerRadius={95} dataKey="value" paddingAngle={3}>
-                      {catTotals.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    <Pie
+                      data={catTotals}
+                      cx="50%" cy="50%"
+                      outerRadius={95}
+                      dataKey="value"
+                      paddingAngle={3}
+                      onClick={(d) => setDrillCat(prev => prev === d.id ? null : d.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {catTotals.map((e) => (
+                        <Cell
+                          key={e.id}
+                          fill={e.color}
+                          opacity={drillCat && drillCat !== e.id ? 0.3 : 1}
+                          stroke={drillCat === e.id ? '#1f2937' : 'none'}
+                          strokeWidth={drillCat === e.id ? 2 : 0}
+                        />
+                      ))}
                     </Pie>
                     <Tooltip formatter={v => fmt(v)} />
                     <Legend formatter={v => <span style={{ fontSize: 11 }}>{v}</span>} />
@@ -674,12 +708,20 @@ export default function Revenue() {
                 </ResponsiveContainer>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">FY2024-25 Category Breakdown</h2>
-                <div className="space-y-3.5">
+                <h2 className="font-semibold text-gray-900 mb-1">FY2024-25 Category Breakdown</h2>
+                <p className="text-xs text-gray-400 mb-3">Click a row to see exact detail</p>
+                <div className="space-y-2.5">
                   {catTotals.map(c => (
-                    <div key={c.id}>
+                    <div
+                      key={c.id}
+                      onClick={() => setDrillCat(prev => prev === c.id ? null : c.id)}
+                      className={`p-2 rounded-lg cursor-pointer transition-colors ${drillCat === c.id ? 'bg-gray-50 ring-2 ring-offset-1' : 'hover:bg-gray-50'}`}
+                      style={drillCat === c.id ? { ringColor: c.color } : {}}
+                    >
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="flex items-center gap-2 text-gray-700"><span className="w-3 h-3 rounded-full" style={{ background: c.color }} />{c.name}</span>
+                        <span className="flex items-center gap-2 text-gray-700 font-medium">
+                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.color }} />{c.name}
+                        </span>
                         <span className="text-xs text-gray-500">{((c.value / fy25Total) * 100).toFixed(1)}% · <span className="font-semibold text-gray-800">{fmt(c.value)}</span></span>
                       </div>
                       <div className="bg-gray-100 rounded-full h-2"><div className="h-2 rounded-full" style={{ width: `${(c.value / fy25Total) * 100}%`, background: c.color }} /></div>
@@ -688,6 +730,133 @@ export default function Revenue() {
                 </div>
               </div>
             </div>
+
+            {/* ── Drill-down panel ── */}
+            {drillCat && drillInfo && (
+              <div className="bg-white rounded-xl border-2 shadow-sm p-6 space-y-4" style={{ borderColor: drillInfo.color }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ background: drillInfo.color }} />
+                      {drillInfo.name} — Detailed Breakdown
+                    </h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Monthly revenue by fiscal year · campaign detail available for FY2025-26</p>
+                  </div>
+                  <button onClick={() => setDrillCat(null)} className="text-gray-400 hover:text-gray-600 text-xs border border-gray-200 rounded-lg px-2 py-1">✕ Close</button>
+                </div>
+
+                {/* Monthly breakdown table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">FY</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {drillMonthRows.map(r => (
+                        <tr key={r.key} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium text-gray-700">{r.label}</td>
+                          <td className="px-3 py-2 text-gray-500">{r.fy}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-gray-800">{fmt(r.value)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-50 font-bold">
+                        <td colSpan={2} className="px-3 py-2 text-gray-700">Total</td>
+                        <td className="px-3 py-2 text-right text-gray-900">{fmt(drillMonthRows.reduce((a, r) => a + r.value, 0))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Campaign-level detail for web_social: split website vs social */}
+                {drillCat === 'web_social' && drillCampaignRows.length > 0 && (
+                  <div className="space-y-4 pt-2 border-t border-gray-100">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-blue-600 font-semibold uppercase mb-1">Website Banners / PR</p>
+                        <p className="text-lg font-bold text-blue-800">{fmt(websiteCampaigns.reduce((a, c) => a + c.amount, 0))}</p>
+                        <p className="text-xs text-blue-500 mt-0.5">{websiteCampaigns.length} campaigns · FY2025-26</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Social Media Posts</p>
+                        <p className="text-lg font-bold text-purple-800">{fmt(socialCampaigns.reduce((a, c) => a + c.amount, 0))}</p>
+                        <p className="text-xs text-purple-500 mt-0.5">{socialCampaigns.length} campaigns · FY2025-26</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-2">All FY2025-26 Campaigns</p>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100">
+                            <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                            <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Agency</th>
+                            <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
+                            <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Portal</th>
+                            <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Type</th>
+                            <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {drillCampaignRows.map((c, i) => {
+                            const type = classifyPortal(c.portal)
+                            return (
+                              <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-500">{c.month}</td>
+                                <td className="px-3 py-2 text-gray-700">{c.agency}</td>
+                                <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
+                                <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">{c.portal}</td>
+                                <td className="px-3 py-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${type === 'website' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                    {type === 'website' ? 'Website' : 'Social'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right font-semibold text-gray-800">₨{c.amount.toLocaleString()}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Campaign-level detail for drama / glam */}
+                {(drillCat === 'drama' || drillCat === 'glam') && drillCampaignRows.length > 0 && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">FY2025-26 Campaign Detail</p>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                          <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Agency</th>
+                          <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Campaign</th>
+                          <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
+                          <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {drillCampaignRows.map((c, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-gray-500">{c.month}</td>
+                            <td className="px-3 py-2 text-gray-700">{c.agency}</td>
+                            <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">{c.campaign}</td>
+                            <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-gray-800">₨{c.amount.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50 font-bold">
+                          <td colSpan={4} className="px-3 py-2 text-gray-700">Total (FY25-26 only)</td>
+                          <td className="px-3 py-2 text-right text-gray-900">₨{drillCampaignRows.reduce((a, c) => a + c.amount, 0).toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <h2 className="font-semibold text-gray-900 mb-1">FY2024-25 Monthly Composition</h2>
@@ -745,6 +914,141 @@ export default function Revenue() {
 
       {/* ───────────────────────── CAMPAIGNS ───────────────────────── */}
       {view === 'Campaigns' && <Campaigns fmt={fmt} from={from} to={to} entries={entries} />}
+
+      {/* ───────────────────────── WEBSITE ───────────────────────── */}
+      {view === 'Website' && (() => {
+        const webCampaigns = CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'website')
+        const socialCampaigns = CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'social')
+        const webTotal = webCampaigns.reduce((a, c) => a + c.amount, 0)
+        const socialTotal = socialCampaigns.reduce((a, c) => a + c.amount, 0)
+        const webByMonth = {}
+        webCampaigns.forEach(c => { webByMonth[c.month] = (webByMonth[c.month] || 0) + c.amount })
+        const socialByMonth = {}
+        socialCampaigns.forEach(c => { socialByMonth[c.month] = (socialByMonth[c.month] || 0) + c.amount })
+        const allMonthKeys = [...new Set([...Object.keys(webByMonth), ...Object.keys(socialByMonth)])].sort()
+        const chartData = allMonthKeys.map(k => ({
+          label: MONTHS.find(m => m.key === k)?.label || k,
+          Website: webByMonth[k] || 0,
+          Social: socialByMonth[k] || 0,
+        }))
+        // Group web campaigns by brand for top-brand view
+        const byBrand = {}
+        webCampaigns.forEach(c => { byBrand[c.brand] = (byBrand[c.brand] || 0) + c.amount })
+        const topBrands = Object.entries(byBrand).sort((a, b) => b[1] - a[1])
+        return (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
+                <p className="text-xs text-blue-500 font-semibold uppercase mb-1">Website Revenue</p>
+                <p className="text-2xl font-bold text-blue-800">{fmt(webTotal)}</p>
+                <p className="text-xs text-blue-400 mt-1">{webCampaigns.length} campaigns · FY2025-26</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
+                <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Social Media Revenue</p>
+                <p className="text-2xl font-bold text-purple-800">{fmt(socialTotal)}</p>
+                <p className="text-xs text-purple-400 mt-1">{socialCampaigns.length} campaigns · FY2025-26</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Website Share</p>
+                <p className="text-2xl font-bold text-gray-800">{((webTotal / (webTotal + socialTotal)) * 100).toFixed(1)}%</p>
+                <p className="text-xs text-gray-400 mt-1">of Web + Social combined</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="font-semibold text-gray-900 mb-1">Website vs Social — Monthly Revenue</h2>
+              <p className="text-xs text-gray-400 mb-4">FY2025-26 · Campaign-level data</p>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tickFormatter={axisFmt} tick={{ fontSize: 10 }} width={60} />
+                  <Tooltip formatter={(v, name) => [fmt(v), name]} />
+                  <Legend />
+                  <Bar dataKey="Website" fill="#2563eb" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="Social" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-3">Top Brands — Website</h2>
+                <div className="space-y-2">
+                  {topBrands.slice(0, 10).map(([brand, amt]) => (
+                    <div key={brand} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className="font-medium text-gray-700">{brand}</span>
+                          <span className="text-gray-500">{fmt(amt)}</span>
+                        </div>
+                        <div className="bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${(amt / topBrands[0][1]) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-3">Top Brands — Social Media</h2>
+                <div className="space-y-2">
+                  {(() => {
+                    const sb = {}
+                    socialCampaigns.forEach(c => { sb[c.brand] = (sb[c.brand] || 0) + c.amount })
+                    const sorted = Object.entries(sb).sort((a, b) => b[1] - a[1])
+                    return sorted.slice(0, 10).map(([brand, amt]) => (
+                      <div key={brand} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex justify-between text-xs mb-0.5">
+                            <span className="font-medium text-gray-700">{brand}</span>
+                            <span className="text-gray-500">{fmt(amt)}</span>
+                          </div>
+                          <div className="bg-gray-100 rounded-full h-1.5">
+                            <div className="h-1.5 rounded-full bg-purple-500" style={{ width: `${(amt / sorted[0][1]) * 100}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-x-auto">
+              <h2 className="font-semibold text-gray-900 mb-3">All Website Campaigns — FY2025-26</h2>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Agency</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Campaign</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Portal</th>
+                    <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {webCampaigns.map((c, i) => (
+                    <tr key={i} className="hover:bg-blue-50 transition-colors">
+                      <td className="px-3 py-2 text-gray-500">{c.month}</td>
+                      <td className="px-3 py-2 text-gray-700">{c.agency}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">{c.campaign}</td>
+                      <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
+                      <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">{c.portal}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-blue-700">₨{c.amount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-blue-50 font-bold">
+                    <td colSpan={5} className="px-3 py-2 text-gray-700">Total</td>
+                    <td className="px-3 py-2 text-right text-blue-800">₨{webTotal.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Modals */}
       {showPpt && <PptModal onClose={() => setShowPpt(false)} months={months} range={range} rangeLabel={`${range[0]?.label} – ${range[range.length - 1]?.label}`} liveTotal={liveTotal} />}

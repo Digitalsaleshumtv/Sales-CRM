@@ -341,6 +341,16 @@ export const SPECIAL_EVENTS = [
   { label: 'Bridal Couture Week sponsorship', month: '2024-12', amount: 9600000 },
 ]
 
+// Classify a campaign portal as 'website', 'social', 'glam', or 'drama'
+export function classifyPortal(portal) {
+  const p = (portal || '').toLowerCase()
+  if (p.includes('glam')) return 'glam'
+  if (p.includes('insta') || p.includes('facebook') || p.includes('social') || p.includes('twitter') || p.includes('tiktok')) return 'social'
+  if (p.includes('website') || p.includes('urdu web') || p.includes('english web') || p.includes('youtube') || p.includes('podcast') || p.includes('video')) return 'website'
+  if (p.includes('hum tv') || p.includes('hum news') || p.includes('masala') || p.includes('drama')) return 'drama'
+  return 'other'
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 export function monthsInRange(from, to) {
   return MONTHS.filter(m => m.key >= from && m.key <= to)
