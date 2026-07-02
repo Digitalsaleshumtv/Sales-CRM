@@ -11,7 +11,7 @@ import {
   PORTAL_OPTIONS, CHANNEL_OPTIONS,
 } from '../../data/revenueData'
 
-const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns', 'Website']
+const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns', 'Website', 'Social Media']
 const FY_COLORS = { 'FY2023-24': '#64748b', 'FY2024-25': '#c0392b', 'FY2025-26': '#d4a017', 'FY2026-27': '#0e7490' }
 const MONTH_ORDER = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
 const CHART_MODES = ['Bars', 'Line', 'Cumulative', 'Pie', 'Donut']
@@ -1085,6 +1085,178 @@ export default function Revenue() {
                   <tr className="bg-blue-50 font-bold">
                     <td colSpan={6} className="px-3 py-2 text-gray-700">Total</td>
                     <td className="px-3 py-2 text-right text-blue-800">₨{webTotal.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ───────────────────────── SOCIAL MEDIA ───────────────────────── */}
+      {view === 'Social Media' && (() => {
+        const SOCIAL_PORTALS = ['FB Post', 'FB Reel', 'Insta Post', 'Insta Reel', 'YouTube']
+        const SOCIAL_COLORS  = { 'FB Post': '#1877f2', 'FB Reel': '#0c63d4', 'Insta Post': '#e1306c', 'Insta Reel': '#c13584', 'YouTube': '#ff0000' }
+
+        // All rows filtered by date range
+        const allRows = [
+          ...CAMPAIGNS_FY26.map(c => ({ month: c.month, portal: c.portal, amount: c.amount, impressions: c.impressions || 0, agency: c.agency, brand: c.brand, campaign: c.campaign })),
+          ...entries.map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number, live: true })),
+        ].filter(c => c.month >= from && c.month <= to && classifyPortal(c.portal) === 'social')
+
+        const totalSocial = allRows.reduce((a, c) => a + c.amount, 0)
+        const totalImpressions = allRows.reduce((a, c) => a + (c.impressions || 0), 0)
+
+        // Per exact placement (live entries only — historical lumped as 'Social')
+        const byPlacement = {}
+        SOCIAL_PORTALS.forEach(p => { byPlacement[p] = { amount: 0, impressions: 0, count: 0 } })
+        byPlacement['Other Social'] = { amount: 0, impressions: 0, count: 0 }
+        entries.filter(e => e.month >= from && e.month <= to && classifyPortal(e.portal) === 'social').forEach(e => {
+          const key = SOCIAL_PORTALS.includes(e.portal) ? e.portal : 'Other Social'
+          byPlacement[key].amount      += Number(e.amount || 0)
+          byPlacement[key].impressions += Number(e.impressions || 0)
+          byPlacement[key].count++
+        })
+
+        // Monthly trend
+        const byMonth = {}
+        allRows.forEach(c => { byMonth[c.month] = (byMonth[c.month] || 0) + c.amount })
+        const monthChartData = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => ({ label: MONTHS.find(m => m.key === k)?.label || k, amount: v }))
+
+        // Top brands
+        const byBrand = {}
+        allRows.forEach(c => { byBrand[c.brand] = (byBrand[c.brand] || 0) + c.amount })
+        const topBrands = Object.entries(byBrand).sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+        return (
+          <div className="space-y-5">
+            {/* KPI cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-pink-50 border border-pink-100 rounded-xl p-5">
+                <p className="text-xs text-pink-500 font-semibold uppercase mb-1">Social Media Revenue</p>
+                <p className="text-2xl font-bold text-pink-800">{fmt(totalSocial)}</p>
+                <p className="text-xs text-pink-400 mt-1">{allRows.length} campaigns in selected period</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
+                <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Total Impressions</p>
+                <p className="text-2xl font-bold text-purple-800">{totalImpressions > 0 ? totalImpressions.toLocaleString() : '—'}</p>
+                <p className="text-xs text-purple-400 mt-1">from live entries with impressions data</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Platforms Active</p>
+                <p className="text-2xl font-bold text-gray-800">{Object.values(byPlacement).filter(v => v.amount > 0).length}</p>
+                <p className="text-xs text-gray-400 mt-1">of {SOCIAL_PORTALS.length} placements used</p>
+              </div>
+            </div>
+
+            {/* Per-placement breakdown */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="font-semibold text-gray-900 mb-1">Revenue by Placement</h2>
+              <p className="text-xs text-gray-400 mb-4">Exact placement breakdown from live entries · historical data shown as combined Social row</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+                {SOCIAL_PORTALS.map(p => {
+                  const d = byPlacement[p]
+                  const color = SOCIAL_COLORS[p]
+                  return (
+                    <div key={p} className={`rounded-xl border p-4 text-center ${d.amount > 0 ? 'border-gray-200 shadow-sm' : 'border-gray-100 opacity-40'}`}>
+                      <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ background: color }} />
+                      <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">{p}</p>
+                      <p className="text-base font-bold text-gray-900">{d.amount > 0 ? fmt(d.amount) : '—'}</p>
+                      {d.impressions > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{d.impressions.toLocaleString()} impr.</p>}
+                      {d.count > 0 && <p className="text-[10px] text-gray-400">{d.count} campaign{d.count > 1 ? 's' : ''}</p>}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Historical social campaigns (from CAMPAIGNS_FY26, no exact placement) */}
+              {allRows.filter(c => !c.live).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Historical campaigns (portal as recorded in source data)</p>
+                  <div className="space-y-1">
+                    {allRows.filter(c => !c.live).map((c, i) => (
+                      <div key={i} className="flex justify-between text-xs text-gray-600 py-1">
+                        <span>{c.month} · <span className="font-medium">{c.brand}</span> · {c.agency} <span className="text-gray-400">({c.portal})</span></span>
+                        <span className="font-semibold">₨{c.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Monthly trend chart */}
+            {monthChartData.length > 1 && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-4">Social Media Revenue — Monthly Trend</h2>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={monthChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                    <YAxis tickFormatter={axisFmt} tick={{ fontSize: 10 }} width={55} />
+                    <Tooltip formatter={v => [fmt(v), 'Social Revenue']} />
+                    <Bar dataKey="amount" fill="#e1306c" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Top brands */}
+            {topBrands.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-3">Top Brands — Social Media</h2>
+                <div className="space-y-2">
+                  {topBrands.map(([brand, amt]) => (
+                    <div key={brand}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium text-gray-700">{brand}</span>
+                        <span className="text-gray-500">{fmt(amt)}</span>
+                      </div>
+                      <div className="bg-gray-100 rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full bg-pink-500" style={{ width: `${(amt / topBrands[0][1]) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Full campaign table */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-x-auto">
+              <h2 className="font-semibold text-gray-900 mb-3">All Social Media Campaigns</h2>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Agency</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Campaign</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Placement</th>
+                    <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Impressions</th>
+                    <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {allRows.sort((a, b) => a.month.localeCompare(b.month)).map((c, i) => (
+                    <tr key={i} className={c.live ? 'bg-green-50 hover:bg-green-100' : 'hover:bg-pink-50'}>
+                      <td className="px-3 py-2 text-gray-500">{c.month}</td>
+                      <td className="px-3 py-2 text-gray-700">{c.agency}</td>
+                      <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{c.campaign}</td>
+                      <td className="px-3 py-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                          style={{ background: SOCIAL_COLORS[c.portal] ? SOCIAL_COLORS[c.portal] + '20' : '#f3e8ff', color: SOCIAL_COLORS[c.portal] || '#7c3aed' }}>
+                          {c.portal || 'Social'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-400">{c.impressions > 0 ? c.impressions.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-pink-700">₨{c.amount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-pink-50 font-bold border-t-2">
+                    <td colSpan={6} className="px-3 py-2 text-gray-700">Total</td>
+                    <td className="px-3 py-2 text-right text-pink-800">₨{totalSocial.toLocaleString()}</td>
                   </tr>
                 </tbody>
               </table>

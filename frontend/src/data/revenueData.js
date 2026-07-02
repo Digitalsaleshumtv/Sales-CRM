@@ -345,21 +345,23 @@ export const SPECIAL_EVENTS = [
 export const PORTAL_OPTIONS  = ['Website', 'FB Post', 'Insta Post', 'FB Reel', 'Insta Reel', 'YouTube', 'Other']
 export const CHANNEL_OPTIONS = ['HUM News', 'Masala TV', 'HUM TV', 'Glam', 'Special Project']
 
-// Classify a campaign portal as 'website', 'social', 'youtube', 'glam', or 'drama'
+// Classify a campaign portal as 'website', 'social', 'glam', or 'drama'
+// YouTube is social media (user confirmed)
 export function classifyPortal(portal) {
   const p = (portal || '').toLowerCase().trim()
   if (!p) return 'other'
-  // Exact canonical names from Add Entry form — check these first
-  if (p === 'youtube') return 'youtube'
+  // Canonical names from Add Entry form — social includes YouTube
+  if (['fb post', 'insta post', 'fb reel', 'insta reel', 'youtube'].includes(p)) return 'social'
   if (p === 'website') return 'website'
-  if (['fb post', 'insta post', 'fb reel', 'insta reel'].includes(p)) return 'social'
-  // Glam variants
+  // Glam — check exact before keyword scan
   if (p === 'glam' || p === 'glam magazine') return 'glam'
-  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social') || p.includes('reel')) return 'social'
+  // Social keywords
+  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social') || p.includes('reel') || p.includes('youtube')) return 'social'
+  // Remaining glam variants
   if (p.includes('glam')) return 'glam'
-  if (p.includes('youtube')) return 'youtube'
-  // Drama — only explicit broadcast TV
+  // Drama — only explicit broadcast TV portal
   if (p === 'hum tv' || p.startsWith('hum tv ') || p.startsWith('hum tv,')) return 'drama'
+  // Everything else (hum news, hum masala, hum network website, podcast, video, pr, etc.) = website
   return 'website'
 }
 
