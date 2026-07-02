@@ -1413,9 +1413,21 @@ function EntryModal({ onClose, liveStatus }) {
     payload.amount = Number(form.amount)
     if (payload.impressions) payload.impressions = Number(payload.impressions)
     const { error } = await supabase.from('revenue_entries').insert([payload])
+    if (error) { setBusy(false); setErr(error.message); return }
+
+    // Auto-create client records for brand and agency (skip if already exists)
+    const toUpsert = []
+    if (form.brand?.trim()) toUpsert.push({ name: form.brand.trim(), type: 'brand', source: 'revenue' })
+    if (form.agency?.trim() && form.agency.trim().toLowerCase() !== 'direct') {
+      toUpsert.push({ name: form.agency.trim(), type: 'agency', source: 'revenue' })
+    }
+    if (toUpsert.length > 0) {
+      await supabase.from('clients').upsert(toUpsert, { onConflict: 'name', ignoreDuplicates: true })
+    }
+
     setBusy(false)
-    if (error) setErr(error.message)
-    else { setDone(true); setTimeout(onClose, 900) }
+    setDone(true)
+    setTimeout(onClose, 900)
   }
 
   return (
