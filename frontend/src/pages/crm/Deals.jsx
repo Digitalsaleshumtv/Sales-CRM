@@ -5,7 +5,7 @@ import { notifyAdmin } from '../../lib/notify'
 import { downloadExcel } from '../../lib/exportExcel'
 
 const DEAL_TYPES = ['Drama Sponsorship','Social Media Posts','Website Banners','Exclusive Content','Product Integration','Drama Integration','Podcast','Webseries','Event Sponsorship','Branded Content Package']
-const CHANNELS   = ['HUM TV','Masala TV','HUM News','HUM Network']
+const CHANNELS   = ['HUM News','Masala TV','HUM TV','Glam','Special Project']
 const STATUSES   = ['Prospecting','Pitch Sent','In Negotiation','Under Process','Locked','RO Received','Billed','Sent to Finance','Completed','Cancelled']
 const TIERS      = ['Presenting','Powered By','Associated']
 const KANBAN_STAGES = ['Prospecting','Pitch Sent','In Negotiation','Under Process','Locked','RO Received','Billed']
@@ -68,7 +68,7 @@ export default function Deals() {
   const [tlLoading, setTlLoading] = useState(false)
 
   function defaultForm() {
-    return { name: '', type: DEAL_TYPES[0], client_id: '', channel: [], tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', assigned_to: '', agency_commission_pct: 15 }
+    return { name: '', ro_number: '', type: DEAL_TYPES[0], client_id: '', channel: [], special_project_name: '', tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', assigned_to: '', agency_commission_pct: 15 }
   }
 
   useEffect(() => {
@@ -86,7 +86,14 @@ export default function Deals() {
   async function saveDeal(e) {
     e.preventDefault()
     setSaving(true)
-    const payload = { ...form, value_net: form.value_net ? Number(form.value_net) : null, agency_commission_pct: Number(form.agency_commission_pct) }
+    const payload = {
+      ...form,
+      value_net: form.value_net ? Number(form.value_net) : null,
+      agency_commission_pct: Number(form.agency_commission_pct),
+      // Store Special Project custom name as the channel entry
+      channel: form.channel.map(c => c === 'Special Project' && form.special_project_name.trim() ? `Special Project: ${form.special_project_name.trim()}` : c),
+    }
+    delete payload.special_project_name
     const { error, data } = await supabase.from('deals').insert([payload]).select('*, clients(name)')
     if (!error) {
       const clientName = data?.[0]?.clients?.name || 'a client'
@@ -402,11 +409,8 @@ export default function Deals() {
                   <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="e.g. Nestle Maggi — Drama Sponsorship Q3" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Client</label>
-                  <select value={form.client_id} onChange={e => setForm({...form, client_id: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                    <option value="">Select client...</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">RO Number</label>
+                  <input value={form.ro_number} onChange={e => setForm({...form, ro_number: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="e.g. RO/CC-00699/42758" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
@@ -416,16 +420,34 @@ export default function Deals() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Client</label>
+                  <select value={form.client_id} onChange={e => setForm({...form, client_id: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <option value="">Select client...</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Deal Type *</label>
                   <select required value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
                     {DEAL_TYPES.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Channel(s)</label>
-                  <select multiple value={form.channel} onChange={e => setForm({...form, channel: Array.from(e.target.selectedOptions, o => o.value)})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 h-20">
-                    {CHANNELS.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Platform / Channel</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CHANNELS.map(c => (
+                      <button type="button" key={c}
+                        onClick={() => setForm(f => ({ ...f, channel: f.channel.includes(c) ? f.channel.filter(x => x !== c) : [...f.channel, c] }))}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${form.channel.includes(c) ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  {form.channel.includes('Special Project') && (
+                    <input value={form.special_project_name} onChange={e => setForm({...form, special_project_name: e.target.value})}
+                      className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      placeholder="Project name (e.g. Spelling Whizz)" />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Tier</label>

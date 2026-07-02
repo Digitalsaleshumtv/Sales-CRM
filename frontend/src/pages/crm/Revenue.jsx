@@ -66,17 +66,38 @@ export default function Revenue() {
     return () => { if (chan) supabase.removeChannel(chan) }
   }, [])
 
+  // ── Deals for future revenue projections ──
+  const [deals, setDeals] = useState([])
+  useEffect(() => {
+    supabase.from('deals').select('id,name,value_net,start_date,status,channel').then(({ data }) => setDeals(data || []))
+  }, [])
+
+  const PROJECTION_STATUSES = ['Locked', 'RO Received', 'Billed', 'Sent to Finance']
+  const dealsByMonth = useMemo(() => {
+    const m = {}
+    const today = new Date().toISOString().slice(0, 7) // YYYY-MM
+    deals.forEach(d => {
+      if (!d.start_date || !d.value_net) return
+      if (!PROJECTION_STATUSES.includes(d.status)) return
+      const monthKey = d.start_date.slice(0, 7) // YYYY-MM from date
+      if (monthKey <= today) return // only future months
+      m[monthKey] = (m[monthKey] || 0) + Number(d.value_net)
+    })
+    return m
+  }, [deals])
+
   const liveByMonth = useMemo(() => {
     const m = {}
     entries.forEach(e => { m[e.month] = (m[e.month] || 0) + Number(e.amount || 0) })
     return m
   }, [entries])
 
-  // Static history + live entries merged — every view reads from this
+  // Static history + live entries + deal projections merged
   const months = useMemo(() => MONTHS.map(m => {
     const live = liveByMonth[m.key] || 0
-    return { ...m, live, total: m.total + live }
-  }), [liveByMonth])
+    const projected = dealsByMonth[m.key] || 0
+    return { ...m, live, projected, total: m.total + live + projected }
+  }), [liveByMonth, dealsByMonth])
 
   const liveTotal = entries.reduce((a, e) => a + Number(e.amount || 0), 0)
 
@@ -286,10 +307,11 @@ export default function Revenue() {
                   <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={range.length > 18 ? 2 : 0} angle={range.length > 12 ? -35 : 0} textAnchor={range.length > 12 ? 'end' : 'middle'} height={range.length > 12 ? 55 : 30} />
                   <YAxis tickFormatter={axisFmt} tick={{ fontSize: 10 }} width={55} />
                   <Tooltip formatter={(v, name) => [fmt(v), name]} />
-                  <Bar dataKey="total" radius={[4, 4, 0, 0]} name="Revenue" cursor="pointer"
+                  <Bar dataKey="total" stackId="rev" radius={[0, 0, 0, 0]} name="Revenue" cursor="pointer"
                     onClick={d => { const k = d?.payload?.key ?? d?.key; if (k) setDrillMonth(k) }}>
                     {range.map(m => <Cell key={m.key} fill={drillMonth === m.key ? '#1f2937' : FY_COLORS[m.fy]} opacity={m.status === 'partial' ? 0.45 : 1} />)}
                   </Bar>
+                  <Bar dataKey="projected" stackId="rev" radius={[4, 4, 0, 0]} name="Pipeline (Projected)" fill="#0e7490" opacity={0.6} />
                   {hasTargets && <Line type="monotone" dataKey="target" stroke="#0e7490" strokeWidth={2} strokeDasharray="6 4" dot={false} name="Monthly Target" />}
                 </ComposedChart>
               ) : chartMode === 'Line' ? (
