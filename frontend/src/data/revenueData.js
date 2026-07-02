@@ -342,13 +342,21 @@ export const SPECIAL_EVENTS = [
 ]
 
 // Classify a campaign portal as 'website', 'social', 'glam', or 'drama'
+// Rule: social keywords win first; 'HUM TV' (broadcast) = drama; everything else in W&S context = website
 export function classifyPortal(portal) {
-  const p = (portal || '').toLowerCase()
+  const p = (portal || '').toLowerCase().trim()
+  if (!p) return 'other'
+  // Glam (magazine) — check before social so "Glam Insta" stays social
+  if (p === 'glam' || p === 'glam magazine') return 'glam'
+  // Social — any mention of insta/fb/tiktok/social keyword
+  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social')) return 'social'
+  // Glam (any remaining glam variant that isn't social)
   if (p.includes('glam')) return 'glam'
-  if (p.includes('insta') || p.includes('facebook') || p.includes('social') || p.includes('twitter') || p.includes('tiktok')) return 'social'
-  if (p.includes('website') || p.includes('urdu web') || p.includes('english web') || p.includes('youtube') || p.includes('podcast') || p.includes('video')) return 'website'
-  if (p.includes('hum tv') || p.includes('hum news') || p.includes('masala') || p.includes('drama')) return 'drama'
-  return 'other'
+  // Drama — only explicit broadcast TV portal ("HUM TV" exactly or "HUM TV " prefix)
+  if (p === 'hum tv' || p.startsWith('hum tv ') || p.startsWith('hum tv,')) return 'drama'
+  // Everything else from W&S data: hum news, hum news website, hum network website,
+  // hum masala, youtube, podcast, video, digital, urdu, english — all website
+  return 'website'
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

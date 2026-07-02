@@ -1016,7 +1016,8 @@ export default function Revenue() {
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-x-auto">
-              <h2 className="font-semibold text-gray-900 mb-3">All Website Campaigns — FY2025-26</h2>
+              <h2 className="font-semibold text-gray-900 mb-1">All Website Campaigns — FY2025-26</h2>
+              <p className="text-xs text-gray-400 mb-3">Historical data from source Excel · new entries via Add Entry (includes impressions)</p>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
@@ -1025,6 +1026,7 @@ export default function Revenue() {
                     <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Campaign</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Portal</th>
+                    <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Impressions</th>
                     <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
                   </tr>
                 </thead>
@@ -1035,12 +1037,13 @@ export default function Revenue() {
                       <td className="px-3 py-2 text-gray-700">{c.agency}</td>
                       <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">{c.campaign}</td>
                       <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
-                      <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">{c.portal}</td>
+                      <td className="px-3 py-2 text-gray-500 max-w-[140px] truncate">{c.portal}</td>
+                      <td className="px-3 py-2 text-right text-gray-400">{c.impressions ? Number(c.impressions).toLocaleString() : '—'}</td>
                       <td className="px-3 py-2 text-right font-semibold text-blue-700">₨{c.amount.toLocaleString()}</td>
                     </tr>
                   ))}
                   <tr className="bg-blue-50 font-bold">
-                    <td colSpan={5} className="px-3 py-2 text-gray-700">Total</td>
+                    <td colSpan={6} className="px-3 py-2 text-gray-700">Total</td>
                     <td className="px-3 py-2 text-right text-blue-800">₨{webTotal.toLocaleString()}</td>
                   </tr>
                 </tbody>
@@ -1397,7 +1400,7 @@ alter publication supabase_realtime add table public.revenue_entries;`
 function EntryModal({ onClose, liveStatus }) {
   const today = new Date()
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const [form, setForm] = useState({ month: MONTHS.some(m => m.key === defaultMonth) ? defaultMonth : '2026-07', amount: '', category: '', channel: '', agency: '', brand: '', campaign: '', portal: '', notes: '' })
+  const [form, setForm] = useState({ month: MONTHS.some(m => m.key === defaultMonth) ? defaultMonth : '2026-07', amount: '', impressions: '', category: '', channel: '', agency: '', brand: '', campaign: '', portal: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const [done, setDone] = useState(false)
@@ -1408,6 +1411,7 @@ function EntryModal({ onClose, liveStatus }) {
     setBusy(true); setErr(null)
     const payload = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v === '' ? null : v]))
     payload.amount = Number(form.amount)
+    if (payload.impressions) payload.impressions = Number(payload.impressions)
     const { error } = await supabase.from('revenue_entries').insert([payload])
     setBusy(false)
     if (error) setErr(error.message)
@@ -1441,6 +1445,10 @@ function EntryModal({ onClose, liveStatus }) {
               </label>
               <label className="text-xs text-gray-500">Amount (PKR) *
                 <input type="number" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="e.g. 500000"
+                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
+              </label>
+              <label className="text-xs text-gray-500">Impressions
+                <input type="number" min="0" value={form.impressions} onChange={e => set('impressions', e.target.value)} placeholder="e.g. 150000"
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
               </label>
               <label className="text-xs text-gray-500">Business Type
