@@ -7,7 +7,7 @@ import { Download, X, ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight, Pres
 import { supabase } from '../../lib/supabase'
 import {
   MONTHS, FY_LIST, FY_TARGET, FY_META, CAT_META, BUSINESS_TYPE_PERIODS, CHANNELS_BY_FY,
-  CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR, classifyPortal,
+  CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR, classifyPortal, isSocial,
   PORTAL_OPTIONS, CHANNEL_OPTIONS, inferChannel,
 } from '../../data/revenueData'
 
@@ -667,14 +667,14 @@ export default function Revenue() {
           : []
         // Campaign-level detail (FY25-26 only, from CAMPAIGNS_FY26)
         const drillCampaignRows = drillCat === 'web_social'
-          ? CAMPAIGNS_FY26.filter(c => ['website', 'social', 'other'].includes(classifyPortal(c.portal)))
+          ? CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'website' || isSocial(c.portal) || classifyPortal(c.portal) === 'glam')
           : drillCat === 'drama'
           ? CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'drama')
           : drillCat === 'glam'
           ? CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'glam')
           : []
         const websiteCampaigns = drillCat === 'web_social' ? drillCampaignRows.filter(c => classifyPortal(c.portal) === 'website') : []
-        const socialCampaigns  = drillCat === 'web_social' ? drillCampaignRows.filter(c => classifyPortal(c.portal) === 'social') : []
+        const socialCampaigns  = drillCat === 'web_social' ? drillCampaignRows.filter(c => isSocial(c.portal)) : []
 
         return (
           <div className="space-y-5">
@@ -810,8 +810,8 @@ export default function Revenue() {
                                 <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
                                 <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">{c.portal}</td>
                                 <td className="px-3 py-2">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${type === 'website' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                    {type === 'website' ? 'Website' : 'Social'}
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${type === 'website' ? 'bg-blue-100 text-blue-700' : type === 'instagram' ? 'bg-pink-100 text-pink-700' : type === 'facebook' ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-700'}`}>
+                                    {type === 'website' ? 'Website' : type === 'instagram' ? 'Instagram' : type === 'facebook' ? 'Facebook' : 'YouTube'}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-right font-semibold text-gray-800">₨{c.amount.toLocaleString()}</td>
@@ -931,7 +931,7 @@ export default function Revenue() {
         })
 
         const webCampaigns = allPortalRows.filter(c => classifyPortal(c.portal) === 'website')
-        const socialCampaigns = allPortalRows.filter(c => classifyPortal(c.portal) === 'social')
+        const socialCampaigns = allPortalRows.filter(c => isSocial(c.portal))
         const webTotal = webCampaigns.reduce((a, c) => a + c.amount, 0)
         const socialTotal = socialCampaigns.reduce((a, c) => a + c.amount, 0)
         const webByMonth = {}
@@ -1134,24 +1134,32 @@ export default function Revenue() {
 
       {/* ───────────────────────── SOCIAL MEDIA ───────────────────────── */}
       {view === 'Social Media' && (() => {
-        const SOCIAL_PORTALS = ['FB Post', 'FB Reel', 'Insta Post', 'Insta Reel', 'YouTube']
-        const SOCIAL_COLORS  = { 'FB Post': '#1877f2', 'FB Reel': '#0c63d4', 'Insta Post': '#e1306c', 'Insta Reel': '#c13584', 'YouTube': '#ff0000' }
+        const SOCIAL_PORTALS = ['YouTube', 'FB Post', 'FB Reel', 'Insta Post', 'Insta Reel']
+        const SOCIAL_COLORS  = { 'YouTube': '#ff0000', 'FB Post': '#1877f2', 'FB Reel': '#0c63d4', 'Insta Post': '#e1306c', 'Insta Reel': '#c13584' }
 
-        // All rows filtered by date range
+        // All rows filtered by date range — social = youtube + instagram + facebook
         const allRows = [
           ...CAMPAIGNS_FY26.map(c => ({ month: c.month, portal: c.portal, amount: c.amount, impressions: c.impressions || 0, agency: c.agency, brand: c.brand, campaign: c.campaign })),
           ...entries.map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number, live: true })),
-        ].filter(c => c.month >= from && c.month <= to && classifyPortal(c.portal) === 'social')
+        ].filter(c => c.month >= from && c.month <= to && isSocial(c.portal))
 
         const totalSocial = allRows.reduce((a, c) => a + c.amount, 0)
         const totalImpressions = allRows.reduce((a, c) => a + (c.impressions || 0), 0)
 
-        // Per exact placement (live entries only — historical lumped as 'Social')
+        // Per placement — include both historical and live entries
         const byPlacement = {}
         SOCIAL_PORTALS.forEach(p => { byPlacement[p] = { amount: 0, impressions: 0, count: 0 } })
-        byPlacement['Other Social'] = { amount: 0, impressions: 0, count: 0 }
-        entries.filter(e => e.month >= from && e.month <= to && classifyPortal(e.portal) === 'social').forEach(e => {
-          const key = SOCIAL_PORTALS.includes(e.portal) ? e.portal : 'Other Social'
+        byPlacement['Other'] = { amount: 0, impressions: 0, count: 0 }
+        allRows.forEach(e => {
+          // Map to canonical bucket
+          let key = 'Other'
+          if (SOCIAL_PORTALS.includes(e.portal)) { key = e.portal }
+          else {
+            const t = classifyPortal(e.portal)
+            if (t === 'youtube') key = 'YouTube'
+            else if (t === 'instagram') key = e.portal.toLowerCase().includes('reel') ? 'Insta Reel' : 'Insta Post'
+            else if (t === 'facebook') key = e.portal.toLowerCase().includes('reel') ? 'FB Reel' : 'FB Post'
+          }
           byPlacement[key].amount      += Number(e.amount || 0)
           byPlacement[key].impressions += Number(e.impressions || 0)
           byPlacement[key].count++
@@ -1192,16 +1200,16 @@ export default function Revenue() {
             {/* Per-placement breakdown */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <h2 className="font-semibold text-gray-900 mb-1">Revenue by Placement</h2>
-              <p className="text-xs text-gray-400 mb-4">Exact placement breakdown from live entries · historical data shown as combined Social row</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-                {SOCIAL_PORTALS.map(p => {
-                  const d = byPlacement[p]
-                  const color = SOCIAL_COLORS[p]
+              <p className="text-xs text-gray-400 mb-4">Historical entries without explicit portal (HUM Masala, Hum News, HUM TV etc.) counted as YouTube</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 mb-5">
+                {[...SOCIAL_PORTALS, 'Other'].map(p => {
+                  const d = byPlacement[p] || { amount: 0, impressions: 0, count: 0 }
+                  const color = SOCIAL_COLORS[p] || '#6b7280'
                   return (
                     <div key={p} className={`rounded-xl border p-4 text-center ${d.amount > 0 ? 'border-gray-200 shadow-sm' : 'border-gray-100 opacity-40'}`}>
                       <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ background: color }} />
                       <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">{p}</p>
-                      <p className="text-base font-bold text-gray-900">{d.amount > 0 ? fmt(d.amount) : '—'}</p>
+                      <p className="text-base font-bold text-gray-900">{d.amount > 0 ? fmt(d.amount) : <span className="text-gray-300">₨0</span>}</p>
                       {d.impressions > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{d.impressions.toLocaleString()} impr.</p>}
                       {d.count > 0 && <p className="text-[10px] text-gray-400">{d.count} campaign{d.count > 1 ? 's' : ''}</p>}
                     </div>

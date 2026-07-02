@@ -349,20 +349,28 @@ export const CHANNEL_OPTIONS = ['HUM News', 'Masala TV', 'HUM TV', 'Glam', 'Spec
 // YouTube is social media (user confirmed)
 export function classifyPortal(portal) {
   const p = (portal || '').toLowerCase().trim()
-  if (!p) return 'other'
-  // Canonical names from Add Entry form — social includes YouTube
-  if (['fb post', 'insta post', 'fb reel', 'insta reel', 'youtube'].includes(p)) return 'social'
+  if (!p) return 'youtube'
+  // Must contain "website" to be website
+  if (p.includes('website')) return 'website'
   if (p === 'website') return 'website'
-  // Glam — check exact before keyword scan
-  if (p === 'glam' || p === 'glam magazine') return 'glam'
-  // Social keywords
-  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social') || p.includes('reel') || p.includes('youtube')) return 'social'
-  // Remaining glam variants
-  if (p.includes('glam')) return 'glam'
-  // Drama — only explicit broadcast TV portal
-  if (p === 'hum tv' || p.startsWith('hum tv ') || p.startsWith('hum tv,')) return 'drama'
-  // Everything else (hum news, hum masala, hum network website, podcast, video, pr, etc.) = website
-  return 'website'
+  // Instagram
+  if (p.includes('insta') || p.includes('instagram')) return 'instagram'
+  // Facebook
+  if (p.includes('fb') || p.includes('facebook')) return 'facebook'
+  // YouTube / Reels / TikTok
+  if (p.includes('youtube') || p.includes('reel') || p.includes('tiktok')) return 'youtube'
+  // Explicit social keyword
+  if (p.includes('social')) return 'youtube'
+  // Glam magazine
+  if (p === 'glam' || p.includes('glam')) return 'glam'
+  // Everything else (HUM Masala, Hum News, HUM TV, etc.) = YouTube
+  return 'youtube'
+}
+
+// For grouping: is this portal "social media" (youtube/instagram/facebook)?
+export function isSocial(portal) {
+  const t = classifyPortal(portal)
+  return t === 'youtube' || t === 'instagram' || t === 'facebook'
 }
 
 // Infer which HUM channel a campaign belongs to from its portal name
