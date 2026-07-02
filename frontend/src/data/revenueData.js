@@ -365,6 +365,17 @@ export function classifyPortal(portal) {
   return 'website'
 }
 
+// Infer which HUM channel a campaign belongs to from its portal name
+// Used for historical data where channel wasn't recorded separately
+export function inferChannel(portal, channelField) {
+  if (channelField) return channelField   // new entries have explicit channel field
+  const p = (portal || '').toLowerCase()
+  if (p.includes('masala')) return 'Masala TV'
+  if (p.includes('glam'))   return 'Glam'
+  if (p.includes('hum tv') && !p.includes('youtube')) return 'HUM TV'
+  return 'HUM News'  // default — covers hum news website, hum english, hum urdu, hum network, etc.
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 export function monthsInRange(from, to) {
   return MONTHS.filter(m => m.key >= from && m.key <= to)

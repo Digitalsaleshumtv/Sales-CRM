@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase'
 import {
   MONTHS, FY_LIST, FY_TARGET, FY_META, CAT_META, BUSINESS_TYPE_PERIODS, CHANNELS_BY_FY,
   CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR, classifyPortal,
-  PORTAL_OPTIONS, CHANNEL_OPTIONS,
+  PORTAL_OPTIONS, CHANNEL_OPTIONS, inferChannel,
 } from '../../data/revenueData'
 
 const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns', 'Website', 'Social Media']
@@ -950,23 +950,62 @@ export default function Revenue() {
         const topBrands = Object.entries(byBrand).sort((a, b) => b[1] - a[1])
         return (
           <div className="space-y-5">
+            {/* Summary row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
-                <p className="text-xs text-blue-500 font-semibold uppercase mb-1">Website Revenue</p>
-                <p className="text-2xl font-bold text-blue-800">{fmt(webTotal)}</p>
-                <p className="text-xs text-blue-400 mt-1">{webCampaigns.length} campaigns</p>
+                <p className="text-xs text-blue-500 font-semibold uppercase mb-1">Total Website Revenue</p>
+                <p className="text-2xl font-bold text-blue-800">{webTotal > 0 ? fmt(webTotal) : '₨0'}</p>
+                <p className="text-xs text-blue-400 mt-1">{webCampaigns.length} campaigns in period</p>
               </div>
               <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
-                <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Social Media Revenue</p>
-                <p className="text-2xl font-bold text-purple-800">{fmt(socialTotal)}</p>
-                <p className="text-xs text-purple-400 mt-1">{socialCampaigns.length} campaigns</p>
+                <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Total Social Revenue</p>
+                <p className="text-2xl font-bold text-purple-800">{socialTotal > 0 ? fmt(socialTotal) : '₨0'}</p>
+                <p className="text-xs text-purple-400 mt-1">{socialCampaigns.length} campaigns in period</p>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
                 <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Website Share</p>
-                <p className="text-2xl font-bold text-gray-800">{webTotal + socialTotal > 0 ? ((webTotal / (webTotal + socialTotal)) * 100).toFixed(1) : '—'}%</p>
+                <p className="text-2xl font-bold text-gray-800">{webTotal + socialTotal > 0 ? ((webTotal / (webTotal + socialTotal)) * 100).toFixed(1) : '0.0'}%</p>
                 <p className="text-xs text-gray-400 mt-1">of Web + Social combined</p>
               </div>
             </div>
+
+            {/* Per-channel website breakdown */}
+            {(() => {
+              const WEB_CHANNELS = ['HUM News', 'Masala TV', 'HUM TV', 'Glam']
+              const CH_COLORS = { 'HUM News': '#c0392b', 'Masala TV': '#0d9488', 'HUM TV': '#2563eb', 'Glam': '#db2777' }
+              const byChannel = {}
+              WEB_CHANNELS.forEach(ch => { byChannel[ch] = { amount: 0, count: 0 } })
+              webCampaigns.forEach(c => {
+                const ch = inferChannel(c.portal, c.channel)
+                if (!byChannel[ch]) byChannel[ch] = { amount: 0, count: 0 }
+                byChannel[ch].amount += c.amount
+                byChannel[ch].count++
+              })
+              return (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="font-semibold text-gray-900 mb-1">Website Revenue by Channel</h2>
+                  <p className="text-xs text-gray-400 mb-4">Shows ₨0 when no website revenue recorded for that channel in selected period</p>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {WEB_CHANNELS.map(ch => {
+                      const d = byChannel[ch] || { amount: 0, count: 0 }
+                      return (
+                        <div key={ch} className="rounded-xl border border-gray-200 p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ background: CH_COLORS[ch] }} />
+                            <p className="text-xs font-semibold text-gray-600">{ch} Website</p>
+                          </div>
+                          <p className="text-xl font-bold text-gray-900">{d.amount > 0 ? fmt(d.amount) : <span className="text-gray-300">₨0</span>}</p>
+                          <p className="text-[11px] text-gray-400 mt-1">{d.count > 0 ? `${d.count} campaign${d.count > 1 ? 's' : ''}` : 'no campaigns'}</p>
+                          <div className="mt-2 bg-gray-100 rounded-full h-1">
+                            <div className="h-1 rounded-full" style={{ width: `${webTotal > 0 ? (d.amount / webTotal) * 100 : 0}%`, background: CH_COLORS[ch] }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Exact portal breakdown from live entries */}
             {Object.values(portalBreakdown).some(v => v > 0) && (
