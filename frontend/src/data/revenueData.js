@@ -341,21 +341,25 @@ export const SPECIAL_EVENTS = [
   { label: 'Bridal Couture Week sponsorship', month: '2024-12', amount: 9600000 },
 ]
 
-// Classify a campaign portal as 'website', 'social', 'glam', or 'drama'
-// Rule: social keywords win first; 'HUM TV' (broadcast) = drama; everything else in W&S context = website
+// Canonical portal names used in the Add Entry form
+export const PORTAL_OPTIONS  = ['Website', 'FB Post', 'Insta Post', 'FB Reel', 'Insta Reel', 'YouTube', 'Other']
+export const CHANNEL_OPTIONS = ['HUM News', 'Masala TV', 'HUM TV', 'Glam', 'Special Project']
+
+// Classify a campaign portal as 'website', 'social', 'youtube', 'glam', or 'drama'
 export function classifyPortal(portal) {
   const p = (portal || '').toLowerCase().trim()
   if (!p) return 'other'
-  // Glam (magazine) — check before social so "Glam Insta" stays social
+  // Exact canonical names from Add Entry form — check these first
+  if (p === 'youtube') return 'youtube'
+  if (p === 'website') return 'website'
+  if (['fb post', 'insta post', 'fb reel', 'insta reel'].includes(p)) return 'social'
+  // Glam variants
   if (p === 'glam' || p === 'glam magazine') return 'glam'
-  // Social — any mention of insta/fb/tiktok/social keyword
-  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social')) return 'social'
-  // Glam (any remaining glam variant that isn't social)
+  if (p.includes('insta') || p.includes('instagram') || p.includes('facebook') || p.includes('tiktok') || p.includes('social') || p.includes('reel')) return 'social'
   if (p.includes('glam')) return 'glam'
-  // Drama — only explicit broadcast TV portal ("HUM TV" exactly or "HUM TV " prefix)
+  if (p.includes('youtube')) return 'youtube'
+  // Drama — only explicit broadcast TV
   if (p === 'hum tv' || p.startsWith('hum tv ') || p.startsWith('hum tv,')) return 'drama'
-  // Everything else from W&S data: hum news, hum news website, hum network website,
-  // hum masala, youtube, podcast, video, digital, urdu, english — all website
   return 'website'
 }
 

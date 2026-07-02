@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 import {
   MONTHS, FY_LIST, FY_TARGET, FY_META, CAT_META, BUSINESS_TYPE_PERIODS, CHANNELS_BY_FY,
   CHANNEL_COLORS, ENTITIES, CAMPAIGNS_FY26, SPECIAL_EVENTS, TARGET_MONTHLY, TARGET_TOTAL, fmtPKR, classifyPortal,
+  PORTAL_OPTIONS, CHANNEL_OPTIONS,
 } from '../../data/revenueData'
 
 const VIEWS = ['Overview', 'Compare Years', 'Channels', 'Business Type', 'Agencies & Brands', 'Campaigns', 'Website']
@@ -910,15 +911,27 @@ export default function Revenue() {
       })()}
 
       {/* ───────────────────────── AGENCIES & BRANDS ───────────────────────── */}
-      {view === 'Agencies & Brands' && <AgenciesBrands fmt={fmt} axisFmt={axisFmt} />}
+      {view === 'Agencies & Brands' && <AgenciesBrands fmt={fmt} axisFmt={axisFmt} entries={entries} />}
 
       {/* ───────────────────────── CAMPAIGNS ───────────────────────── */}
       {view === 'Campaigns' && <Campaigns fmt={fmt} from={from} to={to} entries={entries} />}
 
       {/* ───────────────────────── WEBSITE ───────────────────────── */}
       {view === 'Website' && (() => {
-        const webCampaigns = CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'website')
-        const socialCampaigns = CAMPAIGNS_FY26.filter(c => classifyPortal(c.portal) === 'social')
+        // Merge historical + live entries
+        const allPortalRows = [
+          ...CAMPAIGNS_FY26.map(c => ({ month: c.month, portal: c.portal, amount: c.amount, impressions: c.impressions || 0, agency: c.agency, brand: c.brand, campaign: c.campaign })),
+          ...entries.map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number, live: true })),
+        ]
+        // Exact portal breakdown (for live entries with canonical portal names)
+        const portalBreakdown = {}
+        PORTAL_OPTIONS.forEach(p => { portalBreakdown[p] = 0 })
+        entries.forEach(e => {
+          if (e.portal && PORTAL_OPTIONS.includes(e.portal)) portalBreakdown[e.portal] = (portalBreakdown[e.portal] || 0) + Number(e.amount || 0)
+        })
+
+        const webCampaigns = allPortalRows.filter(c => classifyPortal(c.portal) === 'website')
+        const socialCampaigns = allPortalRows.filter(c => classifyPortal(c.portal) === 'social')
         const webTotal = webCampaigns.reduce((a, c) => a + c.amount, 0)
         const socialTotal = socialCampaigns.reduce((a, c) => a + c.amount, 0)
         const webByMonth = {}
@@ -941,19 +954,46 @@ export default function Revenue() {
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
                 <p className="text-xs text-blue-500 font-semibold uppercase mb-1">Website Revenue</p>
                 <p className="text-2xl font-bold text-blue-800">{fmt(webTotal)}</p>
-                <p className="text-xs text-blue-400 mt-1">{webCampaigns.length} campaigns · FY2025-26</p>
+                <p className="text-xs text-blue-400 mt-1">{webCampaigns.length} campaigns</p>
               </div>
               <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
                 <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Social Media Revenue</p>
                 <p className="text-2xl font-bold text-purple-800">{fmt(socialTotal)}</p>
-                <p className="text-xs text-purple-400 mt-1">{socialCampaigns.length} campaigns · FY2025-26</p>
+                <p className="text-xs text-purple-400 mt-1">{socialCampaigns.length} campaigns</p>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
                 <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Website Share</p>
-                <p className="text-2xl font-bold text-gray-800">{((webTotal / (webTotal + socialTotal)) * 100).toFixed(1)}%</p>
+                <p className="text-2xl font-bold text-gray-800">{webTotal + socialTotal > 0 ? ((webTotal / (webTotal + socialTotal)) * 100).toFixed(1) : '—'}%</p>
                 <p className="text-xs text-gray-400 mt-1">of Web + Social combined</p>
               </div>
             </div>
+
+            {/* Exact portal breakdown from live entries */}
+            {Object.values(portalBreakdown).some(v => v > 0) && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-1">Revenue by Exact Placement</h2>
+                <p className="text-xs text-gray-400 mb-4">From live entries only (data entered via Add Entry form)</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                  {PORTAL_OPTIONS.filter(p => p !== 'Other').map(p => {
+                    const amt = portalBreakdown[p] || 0
+                    const colors = {
+                      'Website':    'bg-blue-50 text-blue-700 border-blue-100',
+                      'FB Post':    'bg-sky-50 text-sky-700 border-sky-100',
+                      'Insta Post': 'bg-pink-50 text-pink-700 border-pink-100',
+                      'FB Reel':    'bg-cyan-50 text-cyan-700 border-cyan-100',
+                      'Insta Reel': 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100',
+                      'YouTube':    'bg-red-50 text-red-700 border-red-100',
+                    }
+                    return (
+                      <div key={p} className={`rounded-lg border p-3 text-center ${colors[p] || 'bg-gray-50 text-gray-600 border-gray-100'} ${amt === 0 ? 'opacity-40' : ''}`}>
+                        <p className="text-[10px] font-semibold uppercase mb-1">{p}</p>
+                        <p className="text-sm font-bold">{amt > 0 ? fmt(amt) : '—'}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <h2 className="font-semibold text-gray-900 mb-1">Website vs Social — Monthly Revenue</h2>
@@ -1016,8 +1056,8 @@ export default function Revenue() {
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-x-auto">
-              <h2 className="font-semibold text-gray-900 mb-1">All Website Campaigns — FY2025-26</h2>
-              <p className="text-xs text-gray-400 mb-3">Historical data from source Excel · new entries via Add Entry (includes impressions)</p>
+              <h2 className="font-semibold text-gray-900 mb-1">All Website Campaigns</h2>
+              <p className="text-xs text-gray-400 mb-3">Historical + live entries · <span className="text-green-600 font-medium">green = live entry</span></p>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
@@ -1031,8 +1071,8 @@ export default function Revenue() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {webCampaigns.map((c, i) => (
-                    <tr key={i} className="hover:bg-blue-50 transition-colors">
+                  {webCampaigns.sort((a, b) => a.month.localeCompare(b.month)).map((c, i) => (
+                    <tr key={i} className={`transition-colors ${c.live ? 'bg-green-50 hover:bg-green-100' : 'hover:bg-blue-50'}`}>
                       <td className="px-3 py-2 text-gray-500">{c.month}</td>
                       <td className="px-3 py-2 text-gray-700">{c.agency}</td>
                       <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">{c.campaign}</td>
@@ -1061,26 +1101,48 @@ export default function Revenue() {
 }
 
 // ── Agencies & Brands view ────────────────────────────────────────────────────
-function AgenciesBrands({ fmt, axisFmt }) {
-  const [typeFilter, setTypeFilter] = useState('All')
-  const [sortBy, setSortBy] = useState('fy25h1')
-  const [sortDir, setSortDir] = useState('desc')
-  const [expanded, setExpanded] = useState(null)
+function AgenciesBrands({ fmt, axisFmt, entries }) {
+  const [typeFilter, setTypeFilter]   = useState('All')
+  const [sortBy,     setSortBy]       = useState('total')
+  const [sortDir,    setSortDir]      = useState('desc')
+  const [expanded,   setExpanded]     = useState(null)
+  const [brandDrill, setBrandDrill]   = useState(null) // {agency, brand} for campaign list
 
-  const fy26ByAgency = useMemo(() => {
+  // Merge historical campaigns + live entries into one flat list
+  const allCampaigns = useMemo(() => [
+    ...CAMPAIGNS_FY26.map(c => ({ ...c, live: false })),
+    ...entries.map(e => ({
+      month: e.month, agency: e.agency || 'Direct', brand: e.brand || '—',
+      campaign: e.campaign || e.notes || '', portal: e.portal || e.channel || '',
+      amount: Number(e.amount || 0), live: true, ro_number: e.ro_number,
+    })),
+  ], [entries])
+
+  // Agency totals (all campaigns combined)
+  const agencyTotals = useMemo(() => {
     const m = {}
-    CAMPAIGNS_FY26.forEach(c => { m[c.agency] = (m[c.agency] || 0) + c.amount })
+    allCampaigns.forEach(c => { m[c.agency] = (m[c.agency] || 0) + c.amount })
     return m
-  }, [])
+  }, [allCampaigns])
+
+  // Agency → brand breakdown
+  const agencyBrands = useMemo(() => {
+    const m = {}
+    allCampaigns.forEach(c => {
+      if (!m[c.agency]) m[c.agency] = {}
+      m[c.agency][c.brand] = (m[c.agency][c.brand] || 0) + c.amount
+    })
+    return m
+  }, [allCampaigns])
 
   const rows = useMemo(() => {
     const known = new Set(ENTITIES.map(e => e.name))
-    const merged = ENTITIES.map(e => ({ ...e, fy26: fy26ByAgency[e.name] || 0 }))
-    Object.entries(fy26ByAgency).forEach(([name, amt]) => {
-      if (!known.has(name)) merged.push({ name, type: name === 'Direct' ? 'direct' : 'agency', fy24h1: 0, fy25h1: 0, fy26: amt, note: 'New in FY2025-26 (W&S bookings).' })
+    const merged = ENTITIES.map(e => ({ ...e, total: (e.fy24h1 || 0) + (e.fy25h1 || 0) + (agencyTotals[e.name] || 0), live: agencyTotals[e.name] || 0 }))
+    Object.entries(agencyTotals).forEach(([name, amt]) => {
+      if (!known.has(name)) merged.push({ name, type: name === 'Direct' ? 'direct' : 'agency', fy24h1: 0, fy25h1: 0, live: amt, total: amt })
     })
     return merged
-  }, [fy26ByAgency])
+  }, [agencyTotals])
 
   const filtered = rows
     .filter(r => typeFilter === 'All' || (typeFilter === 'Agencies' ? r.type === 'agency' : r.type !== 'agency'))
@@ -1089,13 +1151,13 @@ function AgenciesBrands({ fmt, axisFmt }) {
       return sortDir === 'desc' ? vb - va : va - vb
     })
 
-  const top10 = [...rows].sort((a, b) => (b.fy24h1 + b.fy25h1 + b.fy26) - (a.fy24h1 + a.fy25h1 + a.fy26)).slice(0, 10)
+  const top10 = [...rows].sort((a, b) => b.total - a.total).slice(0, 10)
 
   const brandTotals = useMemo(() => {
     const m = {}
-    CAMPAIGNS_FY26.forEach(c => { m[c.brand] = (m[c.brand] || 0) + c.amount })
+    allCampaigns.forEach(c => { m[c.brand] = (m[c.brand] || 0) + c.amount })
     return Object.entries(m).map(([brand, amount]) => ({ brand, amount })).sort((a, b) => b.amount - a.amount).slice(0, 12)
-  }, [])
+  }, [allCampaigns])
 
   function clickSort(col) {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1114,6 +1176,11 @@ function AgenciesBrands({ fmt, axisFmt }) {
     </th>
   )
 
+  // Campaigns for a specific agency+brand drill
+  const drillCampaigns = brandDrill
+    ? allCampaigns.filter(c => c.agency === brandDrill.agency && (!brandDrill.brand || c.brand === brandDrill.brand))
+    : null
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -1121,59 +1188,116 @@ function AgenciesBrands({ fmt, axisFmt }) {
           <button key={t} onClick={() => setTypeFilter(t)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${typeFilter === t ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>{t}</button>
         ))}
-        <p className="text-xs text-gray-400 ml-2">
-          Brands (e.g. <strong>Mobilink</strong>) are advertisers billed directly — separated from media agencies. Click a row for details.
-        </p>
+        <p className="text-xs text-gray-400 ml-2">Click a row to see per-brand breakdown · click a brand to see all campaigns</p>
       </div>
 
+      {/* Agency → Brand drill panel */}
+      {brandDrill && drillCampaigns && (
+        <div className="bg-white rounded-xl border-2 border-brand-500 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-900">
+                {brandDrill.agency}{brandDrill.brand ? ` → ${brandDrill.brand}` : ' — All Brands'}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {drillCampaigns.length} campaigns · Total: <span className="font-semibold text-gray-700">{fmt(drillCampaigns.reduce((a, c) => a + c.amount, 0))}</span>
+              </p>
+            </div>
+            <button onClick={() => setBrandDrill(null)} className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 hover:bg-gray-50">✕ Close</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Month</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Brand</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Campaign</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Portal</th>
+                  <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">RO#</th>
+                  <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {drillCampaigns.sort((a, b) => a.month.localeCompare(b.month)).map((c, i) => (
+                  <tr key={i} className={`hover:bg-gray-50 ${c.live ? 'bg-green-50/40' : ''}`}>
+                    <td className="px-3 py-2 text-gray-500">{c.month}</td>
+                    <td className="px-3 py-2 font-medium text-gray-800">{c.brand}</td>
+                    <td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{c.campaign}</td>
+                    <td className="px-3 py-2 text-gray-500">{c.portal}</td>
+                    <td className="px-3 py-2 text-gray-400">{c.ro_number || '—'}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-gray-800">₨{c.amount.toLocaleString()}{c.live && <span className="ml-1 text-[9px] text-green-600">LIVE</span>}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-bold border-t-2">
+                  <td colSpan={5} className="px-3 py-2 text-gray-700">Total</td>
+                  <td className="px-3 py-2 text-right text-brand-600">₨{drillCampaigns.reduce((a, c) => a + c.amount, 0).toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-x-auto">
-        <h2 className="font-semibold text-gray-900 mb-1">Who Brought the Business — All Three Years</h2>
-        <p className="text-xs text-gray-400 mb-3">
-          H1 columns = July–December window (the confirmed like-for-like comparison from source reports).
-          FY2025-26 = website & social bookings to date; large drama/event sponsorships for that year are not itemised by agency in the source file.
-        </p>
+        <h2 className="font-semibold text-gray-900 mb-1">Agency &amp; Brand Revenue — All Years</h2>
+        <p className="text-xs text-gray-400 mb-3">Click a row to expand brands · click a brand name to drill into campaigns</p>
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Agency / Brand</th>
               <th className="text-left px-3 py-2 text-gray-500 font-semibold uppercase">Type</th>
-              <SortHead col="fy24h1">H1 FY2023-24</SortHead>
-              <SortHead col="fy25h1">H1 FY2024-25</SortHead>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold uppercase whitespace-nowrap">H1 vs H1</th>
-              <SortHead col="fy26">FY2025-26 (W&S)</SortHead>
+              <SortHead col="fy24h1">H1 FY23-24</SortHead>
+              <SortHead col="fy25h1">H1 FY24-25</SortHead>
+              <SortHead col="live">FY25-26 Live</SortHead>
+              <SortHead col="total">Total</SortHead>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filtered.map(r => (
-              <Fragment key={r.name}>
-                <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpanded(expanded === r.name ? null : r.name)}>
-                  <td className="px-3 py-2 font-medium text-gray-800">{r.name}</td>
-                  <td className="px-3 py-2">{typeBadge(r.type)}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{r.fy24h1 ? fmt(r.fy24h1) : '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{r.fy25h1 ? fmt(r.fy25h1) : '—'}</td>
-                  <td className="px-3 py-2 text-right">{r.fy24h1 && r.fy25h1 ? <Delta value={(r.fy25h1 - r.fy24h1) / r.fy24h1 * 100} /> : r.fy25h1 ? <span className="text-green-600 font-medium">new</span> : r.fy24h1 ? <span className="text-red-400">gone</span> : '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{r.fy26 ? fmt(r.fy26) : '—'}</td>
-                </tr>
-                {expanded === r.name && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={6} className="px-4 py-3">
-                      {r.note && <p className="text-xs text-gray-500 italic mb-2">{r.note}</p>}
-                      {CAMPAIGNS_FY26.some(c => c.agency === r.name) ? (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase">FY2025-26 campaigns</p>
-                          {CAMPAIGNS_FY26.filter(c => c.agency === r.name).map((c, i) => (
-                            <div key={i} className="flex justify-between text-xs text-gray-600">
-                              <span>{c.month} · {c.campaign} <span className="text-gray-400">({c.brand} · {c.portal})</span></span>
-                              <span className="font-medium">{fmt(c.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : !r.note && <p className="text-xs text-gray-400">No FY2025-26 W&S campaigns recorded.</p>}
+            {filtered.map(r => {
+              const brands = agencyBrands[r.name] ? Object.entries(agencyBrands[r.name]).sort((a, b) => b[1] - a[1]) : []
+              const isOpen = expanded === r.name
+              return (
+                <Fragment key={r.name}>
+                  <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpanded(isOpen ? null : r.name)}>
+                    <td className="px-3 py-2 font-medium text-gray-800 flex items-center gap-1">
+                      {brands.length > 0 && <span className="text-gray-400">{isOpen ? '▾' : '▸'}</span>}
+                      {r.name}
                     </td>
+                    <td className="px-3 py-2">{typeBadge(r.type)}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{r.fy24h1 ? fmt(r.fy24h1) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{r.fy25h1 ? fmt(r.fy25h1) : '—'}</td>
+                    <td className="px-3 py-2 text-right text-gray-700">{r.live ? fmt(r.live) : '—'}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-gray-900">{r.total ? fmt(r.total) : '—'}</td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
+                  {/* Per-brand breakdown */}
+                  {isOpen && brands.length > 0 && brands.map(([brand, amt]) => (
+                    <tr key={brand} className="bg-blue-50/40 hover:bg-blue-50 cursor-pointer"
+                      onClick={e => { e.stopPropagation(); setBrandDrill({ agency: r.name, brand }) }}>
+                      <td className="pl-8 pr-3 py-1.5 text-gray-600 flex items-center gap-1">
+                        <span className="text-gray-300 text-[10px]">└</span> {brand}
+                        <span className="ml-1 text-[9px] text-blue-500">view campaigns →</span>
+                      </td>
+                      <td colSpan={4} className="px-3 py-1.5">
+                        <div className="bg-gray-100 rounded-full h-1.5 w-full">
+                          <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${(amt / brands[0][1]) * 100}%` }} />
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-medium text-gray-800">{fmt(amt)}</td>
+                    </tr>
+                  ))}
+                  {isOpen && brands.length > 0 && (
+                    <tr className="bg-blue-50/40 border-b">
+                      <td className="pl-8 pr-3 py-1.5 font-semibold text-gray-700 cursor-pointer hover:underline"
+                        onClick={e => { e.stopPropagation(); setBrandDrill({ agency: r.name, brand: null }) }}>
+                        All campaigns →
+                      </td>
+                      <td colSpan={4} />
+                      <td className="px-3 py-1.5 text-right font-bold text-brand-600">{fmt(brands.reduce((a, [, v]) => a + v, 0))}</td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -1183,7 +1307,7 @@ function AgenciesBrands({ fmt, axisFmt }) {
           <h2 className="font-semibold text-gray-900 mb-1">Top 10 Overall</h2>
           <p className="text-xs text-gray-400 mb-3">Sum across all recorded periods</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={top10.map(r => ({ name: r.name, total: r.fy24h1 + r.fy25h1 + r.fy26 }))} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <BarChart data={top10.map(r => ({ name: r.name, total: r.total }))} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis type="number" tickFormatter={axisFmt} tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={130} />
@@ -1193,15 +1317,16 @@ function AgenciesBrands({ fmt, axisFmt }) {
           </ResponsiveContainer>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h2 className="font-semibold text-gray-900 mb-1">Top Brands — FY2025-26</h2>
-          <p className="text-xs text-gray-400 mb-3">End advertisers behind the bookings (from campaign records)</p>
+          <h2 className="font-semibold text-gray-900 mb-1">Top Brands</h2>
+          <p className="text-xs text-gray-400 mb-3">End advertisers — click to drill into campaigns</p>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={brandTotals} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis type="number" tickFormatter={axisFmt} tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="brand" tick={{ fontSize: 10 }} width={130} />
               <Tooltip formatter={v => [fmt(v), 'Booked']} />
-              <Bar dataKey="amount" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="amount" fill="#7c3aed" radius={[0, 4, 4, 0]}
+                onClick={d => setBrandDrill({ agency: null, brand: d.brand })} style={{ cursor: 'pointer' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1384,116 +1509,193 @@ function PptModal({ onClose, months, range, rangeLabel, liveTotal }) {
 }
 
 // ── Add revenue entry modal ───────────────────────────────────────────────────
-const SETUP_SQL = `create table if not exists public.revenue_entries (
-  id uuid default gen_random_uuid() primary key,
-  month text not null,
-  amount numeric not null,
-  category text, channel text, agency text, brand text,
-  campaign text, portal text, notes text, created_by text,
-  created_at timestamptz default now()
-);
-alter table public.revenue_entries enable row level security;
-create policy "auth read" on public.revenue_entries for select to authenticated using (true);
-create policy "auth insert" on public.revenue_entries for insert to authenticated with check (true);
-alter publication supabase_realtime add table public.revenue_entries;`
-
 function EntryModal({ onClose, liveStatus }) {
   const today = new Date()
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const [form, setForm] = useState({ month: MONTHS.some(m => m.key === defaultMonth) ? defaultMonth : '2026-07', amount: '', impressions: '', category: '', channel: '', agency: '', brand: '', campaign: '', portal: '', notes: '' })
+
+  // Header fields (shared across all portal rows)
+  const [month,       setMonth]       = useState(MONTHS.some(m => m.key === defaultMonth) ? defaultMonth : '2026-07')
+  const [ro,          setRo]          = useState('')
+  const [agency,      setAgency]      = useState('')
+  const [brand,       setBrand]       = useState('')
+  const [campaign,    setCampaign]    = useState('')
+  const [category,    setCategory]    = useState('')
+  const [notes,       setNotes]       = useState('')
+  const [channel,     setChannel]     = useState('HUM News')
+  const [projectName, setProjectName] = useState('')
+
+  // Per-portal amounts + impressions
+  const [lines, setLines] = useState(PORTAL_OPTIONS.map(p => ({ portal: p, customName: '', amount: '', impressions: '' })))
+
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState(null)
+  const [err,  setErr]  = useState(null)
   const [done, setDone] = useState(false)
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const setLine = (i, k, v) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, [k]: v } : l))
+
+  const activeLines = lines.filter(l => Number(l.amount) > 0)
+  const total       = activeLines.reduce((a, l) => a + Number(l.amount), 0)
+  const effectiveCh = channel === 'Special Project' ? (projectName.trim() || 'Special Project') : channel
 
   async function save() {
-    if (!form.amount || Number(form.amount) <= 0) { setErr('Enter an amount in PKR.'); return }
+    if (activeLines.length === 0) { setErr('Enter at least one amount.'); return }
+    if (!ro.trim()) { setErr('RO number is required.'); return }
     setBusy(true); setErr(null)
-    const payload = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v === '' ? null : v]))
-    payload.amount = Number(form.amount)
-    if (payload.impressions) payload.impressions = Number(payload.impressions)
-    const { error } = await supabase.from('revenue_entries').insert([payload])
+
+    const rows = activeLines.map(l => ({
+      month,
+      ro_number:   ro.trim(),
+      agency:      agency.trim()   || null,
+      brand:       brand.trim()    || null,
+      campaign:    campaign.trim() || null,
+      category:    category        || null,
+      notes:       notes.trim()    || null,
+      channel:     effectiveCh,
+      portal:      l.portal === 'Other' ? (l.customName.trim() || 'Other') : l.portal,
+      amount:      Number(l.amount),
+      impressions: Number(l.impressions) || null,
+    }))
+
+    const { error } = await supabase.from('revenue_entries').insert(rows)
     if (error) { setBusy(false); setErr(error.message); return }
 
-    // Auto-create client records for brand and agency (skip if already exists)
+    // Auto-create brand + agency in clients table
     const toUpsert = []
-    if (form.brand?.trim()) toUpsert.push({ name: form.brand.trim(), type: 'brand', source: 'revenue' })
-    if (form.agency?.trim() && form.agency.trim().toLowerCase() !== 'direct') {
-      toUpsert.push({ name: form.agency.trim(), type: 'agency', source: 'revenue' })
-    }
-    if (toUpsert.length > 0) {
+    if (brand.trim()) toUpsert.push({ name: brand.trim(), type: 'brand', source: 'revenue' })
+    if (agency.trim() && agency.trim().toLowerCase() !== 'direct')
+      toUpsert.push({ name: agency.trim(), type: 'agency', source: 'revenue' })
+    if (toUpsert.length > 0)
       await supabase.from('clients').upsert(toUpsert, { onConflict: 'name', ignoreDuplicates: true })
-    }
 
-    setBusy(false)
-    setDone(true)
-    setTimeout(onClose, 900)
+    setBusy(false); setDone(true)
+    setTimeout(onClose, 1200)
   }
 
+  const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white'
+
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-bold text-gray-900">Add Revenue Entry</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-        </div>
-        {liveStatus === 'missing' ? (
-          <div className="mt-3">
-            <p className="text-sm text-gray-600 mb-3">
-              One-time setup needed: the <code className="bg-gray-100 px-1 rounded">revenue_entries</code> table doesn't exist in Supabase yet.
-              Run this SQL once in the <a className="text-brand-500 underline" href="https://supabase.com/dashboard/project/zrqtnxstibtegnfguglz/sql/new" target="_blank" rel="noreferrer">Supabase SQL Editor</a> (also saved as <code className="bg-gray-100 px-1 rounded">setup_revenue_table.sql</code> in the project folder), then reload this page:
-            </p>
-            <pre className="bg-gray-900 text-green-300 text-[10px] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">{SETUP_SQL}</pre>
-            <button onClick={() => navigator.clipboard.writeText(SETUP_SQL)} className="mt-3 w-full border border-gray-200 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Copy SQL</button>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+        {/* Sticky header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">New Revenue Entry</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Saved instantly · brand &amp; agency auto-added to Clients tab</p>
           </div>
-        ) : (
-          <>
-            <p className="text-xs text-gray-400 mb-4">New revenue is saved to Supabase and every open dashboard updates instantly. Only Month and Amount are required.</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+
+          {/* ── Section 1: Core details ── */}
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Details</p>
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs text-gray-500">Month *
-                <select value={form.month} onChange={e => set('month', e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white text-gray-700">
+              <label className="text-xs text-gray-500 font-medium">Month *
+                <select value={month} onChange={e => setMonth(e.target.value)} className={`mt-1 ${inp}`}>
                   {MONTHS.filter(m => m.key >= '2025-07').map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
                 </select>
               </label>
-              <label className="text-xs text-gray-500">Amount (PKR) *
-                <input type="number" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="e.g. 500000"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
+              <label className="text-xs text-gray-500 font-medium">RO Number *
+                <input value={ro} onChange={e => setRo(e.target.value)} placeholder="e.g. HUM-2025-001" className={`mt-1 ${inp}`} />
               </label>
-              <label className="text-xs text-gray-500">Impressions
-                <input type="number" min="0" value={form.impressions} onChange={e => set('impressions', e.target.value)} placeholder="e.g. 150000"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
+              <label className="text-xs text-gray-500 font-medium">Agency
+                <input value={agency} onChange={e => setAgency(e.target.value)} placeholder="e.g. GroupM, BrainChild" className={`mt-1 ${inp}`} />
               </label>
-              <label className="text-xs text-gray-500">Business Type
-                <select value={form.category} onChange={e => set('category', e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white text-gray-700">
-                  <option value="">—</option>
+              <label className="text-xs text-gray-500 font-medium">Brand / Client
+                <input value={brand} onChange={e => setBrand(e.target.value)} placeholder="e.g. Nestle, HBL" className={`mt-1 ${inp}`} />
+              </label>
+              <label className="text-xs text-gray-500 font-medium">Campaign Name
+                <input value={campaign} onChange={e => setCampaign(e.target.value)} placeholder="e.g. Spelling Whizz S2" className={`mt-1 ${inp}`} />
+              </label>
+              <label className="text-xs text-gray-500 font-medium">Business Type
+                <select value={category} onChange={e => setCategory(e.target.value)} className={`mt-1 ${inp}`}>
+                  <option value="">— select —</option>
                   {CAT_META.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </label>
-              <label className="text-xs text-gray-500">Channel
-                <select value={form.channel} onChange={e => set('channel', e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white text-gray-700">
-                  <option value="">—</option>
-                  {Object.keys(CHANNEL_COLORS).map(ch => <option key={ch} value={ch}>{ch}</option>)}
-                </select>
-              </label>
-              {[['agency', 'Agency'], ['brand', 'Brand / Client'], ['campaign', 'Campaign'], ['portal', 'Portal / Platform']].map(([k, label]) => (
-                <label key={k} className="text-xs text-gray-500">{label}
-                  <input value={form[k]} onChange={e => set(k, e.target.value)}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
-                </label>
-              ))}
-              <label className="text-xs text-gray-500 col-span-2">Notes
-                <input value={form.notes} onChange={e => set('notes', e.target.value)}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500" />
+              <label className="text-xs text-gray-500 font-medium col-span-2">Notes
+                <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes" className={`mt-1 ${inp}`} />
               </label>
             </div>
-            {err && <p className="text-xs text-red-500 mt-3">{err}</p>}
-            {done && <p className="text-xs text-green-600 mt-3">✓ Saved — dashboard updated.</p>}
-            <button onClick={save} disabled={busy}
-              className="mt-4 w-full bg-brand-500 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2">
-              <Plus size={15} /> {busy ? 'Saving…' : 'Save Entry'}
-            </button>
-          </>
-        )}
+          </div>
+
+          {/* ── Section 2: Platform ── */}
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Platform *</p>
+            <div className="flex flex-wrap gap-2">
+              {CHANNEL_OPTIONS.map(ch => (
+                <button key={ch} type="button" onClick={() => setChannel(ch)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${channel === ch ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                  {ch}
+                </button>
+              ))}
+            </div>
+            {channel === 'Special Project' && (
+              <input value={projectName} onChange={e => setProjectName(e.target.value)}
+                placeholder="Project name (e.g. HUM Awards, Bridal Couture Week)"
+                className={`mt-2 ${inp}`} />
+            )}
+          </div>
+
+          {/* ── Section 3: Placement breakdown ── */}
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Revenue by Placement</p>
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-xs">
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-500 uppercase">Placement</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-500 uppercase">Amount (PKR)</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-500 uppercase">Impressions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {lines.map((l, i) => (
+                    <tr key={l.portal} className={`transition-colors ${Number(l.amount) > 0 ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
+                      <td className="px-4 py-2.5 font-medium text-gray-700">
+                        {l.portal === 'Other'
+                          ? <input value={l.customName} onChange={e => setLine(i, 'customName', e.target.value)}
+                              placeholder="Specify placement…"
+                              className="w-36 border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-brand-500" />
+                          : l.portal}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-gray-400 text-xs">₨</span>
+                          <input type="number" min="0" value={l.amount} onChange={e => setLine(i, 'amount', e.target.value)}
+                            placeholder="0"
+                            className="w-28 text-right border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-brand-500" />
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <input type="number" min="0" value={l.impressions} onChange={e => setLine(i, 'impressions', e.target.value)}
+                          placeholder="0"
+                          className="w-28 text-right border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-brand-500" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold">
+                    <td className="px-4 py-3 text-gray-700">Total</td>
+                    <td className="px-4 py-3 text-right text-brand-600 text-base">₨{total.toLocaleString()}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {err  && <p className="text-xs text-red-500 font-medium">{err}</p>}
+          {done && <p className="text-xs text-green-600 font-medium">✓ Saved {activeLines.length} row{activeLines.length > 1 ? 's' : ''} — dashboard updated in real time.</p>}
+
+          <button onClick={save} disabled={busy}
+            className="w-full bg-brand-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
+            <Plus size={15} /> {busy ? 'Saving…' : `Save Entry${total > 0 ? ` · ₨${total.toLocaleString()}` : ''}`}
+          </button>
+        </div>
       </div>
     </div>
   )
