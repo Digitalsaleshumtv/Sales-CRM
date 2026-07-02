@@ -68,7 +68,7 @@ export default function Deals() {
   const [tlLoading, setTlLoading] = useState(false)
 
   function defaultForm() {
-    return { name: '', ro_number: '', type: DEAL_TYPES[0], client_id: '', channel: [], special_project_name: '', tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', assigned_to: '', agency_commission_pct: 15 }
+    return { name: '', ro_number: '', type: DEAL_TYPES[0], client_id: '', channel: [], special_project_name: '', tier: '', start_date: '', end_date: '', value_net: '', status: 'Prospecting', notes: '', assigned_to: '', agency_commission_pct: 15, posts: '', impressions: '', episodes: '', articles: '' }
   }
 
   useEffect(() => {
@@ -90,7 +90,10 @@ export default function Deals() {
       ...form,
       value_net: form.value_net ? Number(form.value_net) : null,
       agency_commission_pct: Number(form.agency_commission_pct),
-      // Store Special Project custom name as the channel entry
+      posts:       form.posts       ? Number(form.posts)       : null,
+      impressions: form.impressions ? Number(form.impressions) : null,
+      episodes:    form.episodes    ? Number(form.episodes)    : null,
+      articles:    form.articles    ? Number(form.articles)    : null,
       channel: form.channel.map(c => c === 'Special Project' && form.special_project_name.trim() ? `Special Project: ${form.special_project_name.trim()}` : c),
     }
     delete payload.special_project_name
@@ -219,7 +222,7 @@ export default function Deals() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Deal Name','Client','Type','Channel','Value (Net)','GST','Gross','Status','Assigned To','Dates',''].map(h => (
+                  {['Deal Name','Client','Type','Channel','Deliverables','Value (Net)','GST','Gross','Status','Assigned To','Dates',''].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -234,6 +237,9 @@ export default function Deals() {
                     <td className="px-4 py-3 text-gray-700">{d.clients?.name || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{d.type}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{(d.channel || []).join(', ') || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {[d.posts && `${d.posts} posts`, d.impressions && `${Number(d.impressions).toLocaleString()} impr.`, d.episodes && `${d.episodes} ep.`, d.articles && `${d.articles} art.`].filter(Boolean).join(' · ') || '—'}
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_net)}</td>
                     <td className="px-4 py-3 text-gray-500">{fmt(d.gst)}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{fmt(d.value_gross)}</td>
@@ -478,6 +484,32 @@ export default function Deals() {
                   <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
                     {STATUSES.map(s => <option key={s}>{s}</option>)}
                   </select>
+                </div>
+                {/* Deliverables */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Deliverables</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'posts',       label: 'Posts',       icon: '📱', placeholder: '# of posts' },
+                      { key: 'impressions', label: 'Impressions', icon: '👁', placeholder: '# of impressions' },
+                      { key: 'episodes',    label: 'Episodes',    icon: '🎬', placeholder: '# of episodes' },
+                      { key: 'articles',    label: 'Articles',    icon: '📝', placeholder: '# of articles' },
+                    ].map(({ key, label, icon, placeholder }) => (
+                      <div key={key} className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+                        <span className="text-base">{icon}</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] text-gray-400 font-medium uppercase">{label}</p>
+                          <input
+                            type="number" min="0"
+                            value={form[key]}
+                            onChange={e => setForm({ ...form, [key]: e.target.value })}
+                            placeholder={placeholder}
+                            className="w-full text-sm font-semibold text-gray-800 focus:outline-none bg-transparent"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
