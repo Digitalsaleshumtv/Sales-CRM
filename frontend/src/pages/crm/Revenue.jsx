@@ -1159,29 +1159,20 @@ export default function Revenue() {
         const SOCIAL_PORTALS = ['YouTube', 'FB Post', 'FB Reel', 'Insta Post', 'Insta Reel']
         const SOCIAL_COLORS  = { 'YouTube': '#ff0000', 'FB Post': '#1877f2', 'FB Reel': '#0c63d4', 'Insta Post': '#e1306c', 'Insta Reel': '#c13584' }
 
-        // All rows filtered by date range — social = youtube + instagram + facebook
-        const allRows = [
-          ...CAMPAIGNS_FY26.map(c => ({ month: c.month, portal: c.portal, amount: c.amount, impressions: c.impressions || 0, agency: c.agency, brand: c.brand, campaign: c.campaign })),
-          ...entries.map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number, live: true })),
-        ].filter(c => c.month >= from && c.month <= to && isSocial(c.portal))
+        // Only live entries from revenue_entries (Jul 2025+) — canonical portal names only
+        const allRows = entries
+          .filter(e => e.month >= from && e.month <= to && isSocial(e.portal))
+          .map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number }))
 
         const totalSocial = allRows.reduce((a, c) => a + c.amount, 0)
         const totalImpressions = allRows.reduce((a, c) => a + (c.impressions || 0), 0)
 
-        // Per placement — include both historical and live entries
+        // Per placement — canonical names only from live entries
         const byPlacement = {}
         SOCIAL_PORTALS.forEach(p => { byPlacement[p] = { amount: 0, impressions: 0, count: 0 } })
         byPlacement['Other'] = { amount: 0, impressions: 0, count: 0 }
         allRows.forEach(e => {
-          // Map to canonical bucket
-          let key = 'Other'
-          if (SOCIAL_PORTALS.includes(e.portal)) { key = e.portal }
-          else {
-            const t = classifyPortal(e.portal)
-            if (t === 'youtube') key = 'YouTube'
-            else if (t === 'instagram') key = e.portal.toLowerCase().includes('reel') ? 'Insta Reel' : 'Insta Post'
-            else if (t === 'facebook') key = e.portal.toLowerCase().includes('reel') ? 'FB Reel' : 'FB Post'
-          }
+          const key = SOCIAL_PORTALS.includes(e.portal) ? e.portal : 'Other'
           byPlacement[key].amount      += Number(e.amount || 0)
           byPlacement[key].impressions += Number(e.impressions || 0)
           byPlacement[key].count++
@@ -1239,20 +1230,6 @@ export default function Revenue() {
                 })}
               </div>
 
-              {/* Historical social campaigns (from CAMPAIGNS_FY26, no exact placement) */}
-              {allRows.filter(c => !c.live).length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Historical campaigns (portal as recorded in source data)</p>
-                  <div className="space-y-1">
-                    {allRows.filter(c => !c.live).map((c, i) => (
-                      <div key={i} className="flex justify-between text-xs text-gray-600 py-1">
-                        <span>{c.month} · <span className="font-medium">{c.brand}</span> · {c.agency} <span className="text-gray-400">({c.portal})</span></span>
-                        <span className="font-semibold">₨{c.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Monthly trend chart */}
