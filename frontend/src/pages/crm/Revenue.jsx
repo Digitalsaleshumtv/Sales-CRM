@@ -918,11 +918,11 @@ export default function Revenue() {
 
       {/* ───────────────────────── WEBSITE ───────────────────────── */}
       {view === 'Website' && (() => {
-        // Merge historical + live entries
+        // Merge historical + live entries — filtered by selected date range
         const allPortalRows = [
           ...CAMPAIGNS_FY26.map(c => ({ month: c.month, portal: c.portal, amount: c.amount, impressions: c.impressions || 0, agency: c.agency, brand: c.brand, campaign: c.campaign })),
           ...entries.map(e => ({ month: e.month, portal: e.portal || '', amount: Number(e.amount || 0), impressions: Number(e.impressions || 0), agency: e.agency || '', brand: e.brand || '', campaign: e.campaign || '', ro_number: e.ro_number, live: true })),
-        ]
+        ].filter(c => c.month >= from && c.month <= to)
         // Exact portal breakdown (for live entries with canonical portal names)
         const portalBreakdown = {}
         PORTAL_OPTIONS.forEach(p => { portalBreakdown[p] = 0 })
